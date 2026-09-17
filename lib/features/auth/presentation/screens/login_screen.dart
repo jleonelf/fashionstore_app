@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/ui/colores.dart';
 import 'registro_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final VoidCallback? onLoginOk;
+  const LoginScreen({super.key, this.onLoginOk});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -44,10 +46,10 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('¡Hola de nuevo, ${respuesta.usuario.nombreCompleto}!'),
-          backgroundColor: Colors.blueAccent,
+          backgroundColor: ColoresFS.success,
         ),
       );
-      // Aquí se navegaría a la pantalla principal del catálogo
+      widget.onLoginOk?.call();
     } catch (e) {
       setState(() {
         _mensajeError = e.toString().replaceAll('Exception: ', '');
@@ -74,18 +76,23 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.shopping_bag_outlined, size: 72, color: Colors.blueAccent),
+                  const Icon(Icons.shopping_bag_outlined,
+                      size: 72, color: ColoresFS.brassStrong),
                   const SizedBox(height: 16),
                   const Text(
                     'FashionStore',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                    style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                        color: ColoresFS.ink),
                   ),
                   const SizedBox(height: 8),
                   const Text(
                     'Inicia sesión para continuar',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: ColoresFS.textMuted),
                   ),
                   const SizedBox(height: 32),
                   if (_mensajeError != null)
@@ -93,37 +100,45 @@ class _LoginScreenState extends State<LoginScreen> {
                       padding: const EdgeInsets.all(12),
                       margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red.shade200),
+                        color: const Color(0xFFFFF1F2),
+                        borderRadius:
+                            BorderRadius.circular(ColoresFS.radioControl),
+                        border: Border.all(color: ColoresFS.danger),
                       ),
-                      child: Text(_mensajeError!, style: TextStyle(color: Colors.red.shade800)),
+                      child: Text(_mensajeError!,
+                          style: const TextStyle(color: ColoresFS.danger)),
                     ),
                   TextFormField(
                     controller: _correoController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(labelText: 'Correo Electrónico', border: OutlineInputBorder()),
-                    validator: (v) => v == null || v.isEmpty ? 'Ingrese su correo' : null,
+                    decoration: const InputDecoration(
+                        labelText: 'Correo Electrónico',
+                        border: OutlineInputBorder()),
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Ingrese su correo' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _contraseniaController,
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder()),
-                    validator: (v) => v == null || v.isEmpty ? 'Ingrese su contraseña' : null,
+                    decoration: const InputDecoration(
+                        labelText: 'Contraseña', border: OutlineInputBorder()),
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Ingrese su contraseña' : null,
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: _cargando ? null : _iniciarSesion,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      backgroundColor: Colors.blueAccent,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
                     child: _cargando
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('Iniciar Sesión', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('Iniciar Sesión',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(height: 24),
                   Row(
@@ -134,10 +149,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => const RegistroScreen()),
+                            MaterialPageRoute(
+                                builder: (context) => const RegistroScreen()),
                           );
                         },
-                        child: const Text('Regístrate aquí', style: TextStyle(fontWeight: FontWeight.bold)),
+                        child: const Text('Regístrate aquí',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),

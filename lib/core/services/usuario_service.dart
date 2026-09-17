@@ -7,9 +7,7 @@ class UsuarioService {
   final String _endpointUsuarios = '${ApiConstants.baseUrl}/usuarios';
   final String _endpointRoles = '${ApiConstants.baseUrl}/roles';
 
-  /**
-   * CU02 / RF02: Listar roles
-   */
+  /// Listar roles (uso administrativo).
   Future<List<RolModel>> listarRoles() async {
     final response = await http.get(Uri.parse(_endpointRoles));
     if (response.statusCode == 200) {
@@ -20,15 +18,15 @@ class UsuarioService {
     }
   }
 
-  /**
-   * CU02 / RF02: Listar usuarios con filtros
-   */
-  Future<List<UsuarioListadoModel>> gestionarUsuarios({String? rolId, String? estado}) async {
+  /// Listar usuarios con filtros (uso administrativo).
+  Future<List<UsuarioListadoModel>> gestionarUsuarios(
+      {String? rolId, String? estado}) async {
     final queryParams = <String, String>{};
     if (rolId != null) queryParams['rol_id'] = rolId;
     if (estado != null) queryParams['estado'] = estado;
 
-    final uri = Uri.parse(_endpointUsuarios).replace(queryParameters: queryParams.isEmpty ? null : queryParams);
+    final uri = Uri.parse(_endpointUsuarios)
+        .replace(queryParameters: queryParams.isEmpty ? null : queryParams);
     final response = await http.get(uri);
 
     if (response.statusCode == 200) {
@@ -39,9 +37,7 @@ class UsuarioService {
     }
   }
 
-  /**
-   * CU02 / RF02: Crear usuario interno
-   */
+  /// Crear usuario interno (uso administrativo).
   Future<UsuarioListadoModel> crearUsuario({
     required String rolId,
     required String nombres,
@@ -72,10 +68,9 @@ class UsuarioService {
     }
   }
 
-  /**
-   * CU02 / RF02: Asignar nuevo rol a un usuario
-   */
-  Future<UsuarioListadoModel> asignarRol(String usuarioId, String nuevoRolId) async {
+  /// Asignar nuevo rol a un usuario (uso administrativo).
+  Future<UsuarioListadoModel> asignarRol(
+      String usuarioId, String nuevoRolId) async {
     final response = await http.patch(
       Uri.parse('$_endpointUsuarios/$usuarioId/rol'),
       headers: {'Content-Type': 'application/json'},
@@ -90,9 +85,7 @@ class UsuarioService {
     }
   }
 
-  /**
-   * CU02 / RF02: Desactivar usuario
-   */
+  /// Desactivar usuario (uso administrativo).
   Future<UsuarioListadoModel> desactivarUsuario(String usuarioId) async {
     final response = await http.patch(
       Uri.parse('$_endpointUsuarios/$usuarioId/desactivar'),

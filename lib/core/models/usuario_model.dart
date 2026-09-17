@@ -42,7 +42,9 @@ class ClientePerfilModel {
       estado: json['estado'] ?? 'ACTIVO',
       direccionReferencia: json['direccion_referencia'],
       fechaNacimiento: json['fecha_nacimiento'],
-      preferencias: json['preferencias'] != null ? Map<String, dynamic>.from(json['preferencias']) : {},
+      preferencias: json['preferencias'] != null
+          ? Map<String, dynamic>.from(json['preferencias'])
+          : {},
       creadoEn: DateTime.tryParse(json['creado_en'] ?? '') ?? DateTime.now(),
     );
   }

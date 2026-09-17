@@ -58,8 +58,12 @@ class SucursalModel {
       direccion: json['direccion'] ?? '',
       telefono: json['telefono'],
       numeroAnillo: json['numero_anillo'],
-      tarifaBaseDelivery: double.tryParse(json['tarifa_base_delivery']?.toString() ?? '0') ?? 0.0,
-      incrementoAnilloDelivery: double.tryParse(json['incremento_anillo_delivery']?.toString() ?? '0') ?? 0.0,
+      tarifaBaseDelivery:
+          double.tryParse(json['tarifa_base_delivery']?.toString() ?? '0') ??
+              0.0,
+      incrementoAnilloDelivery: double.tryParse(
+              json['incremento_anillo_delivery']?.toString() ?? '0') ??
+          0.0,
       anilloMinimoDelivery: json['anillo_minimo_delivery'] ?? 1,
       anilloMaximoDelivery: json['anillo_maximo_delivery'] ?? 10,
       deliveryActivo: json['delivery_activo'] ?? true,

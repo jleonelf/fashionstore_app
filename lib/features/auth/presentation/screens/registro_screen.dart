@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/ui/colores.dart';
 
 class RegistroScreen extends StatefulWidget {
   const RegistroScreen({super.key});
@@ -54,8 +55,9 @@ class _RegistroScreenState extends State<RegistroScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('¡Bienvenido ${cliente.nombreCompleto}! Cuenta creada exitosamente.'),
-          backgroundColor: Colors.green,
+          content: Text(
+              '¡Bienvenido ${cliente.nombreCompleto}! Cuenta creada exitosamente.'),
+          backgroundColor: ColoresFS.success,
         ),
       );
       Navigator.pop(context);
@@ -89,12 +91,15 @@ class _RegistroScreenState extends State<RegistroScreen> {
               children: [
                 const Text(
                   'Únete a FashionStore',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: ColoresFS.ink),
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Regístrate para probar prendas en vestidor virtual y reservar en tienda.',
-                  style: TextStyle(color: Colors.grey),
+                  'Crea tu cuenta para reservar prendas y recogerlas en tienda.',
+                  style: TextStyle(color: ColoresFS.textMuted),
                 ),
                 const SizedBox(height: 24),
                 if (_mensajeError != null)
@@ -102,27 +107,35 @@ class _RegistroScreenState extends State<RegistroScreen> {
                     padding: const EdgeInsets.all(12),
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.shade200),
+                      color: const Color(0xFFFFF1F2),
+                      borderRadius:
+                          BorderRadius.circular(ColoresFS.radioControl),
+                      border: Border.all(color: ColoresFS.danger),
                     ),
-                    child: Text(_mensajeError!, style: TextStyle(color: Colors.red.shade800)),
+                    child: Text(_mensajeError!,
+                        style: const TextStyle(color: ColoresFS.danger)),
                   ),
                 Row(
                   children: [
                     Expanded(
                       child: TextFormField(
                         controller: _nombresController,
-                        decoration: const InputDecoration(labelText: 'Nombres *', border: OutlineInputBorder()),
-                        validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                        decoration: const InputDecoration(
+                            labelText: 'Nombres *',
+                            border: OutlineInputBorder()),
+                        validator: (v) =>
+                            v == null || v.isEmpty ? 'Requerido' : null,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextFormField(
                         controller: _apellidosController,
-                        decoration: const InputDecoration(labelText: 'Apellidos *', border: OutlineInputBorder()),
-                        validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                        decoration: const InputDecoration(
+                            labelText: 'Apellidos *',
+                            border: OutlineInputBorder()),
+                        validator: (v) =>
+                            v == null || v.isEmpty ? 'Requerido' : null,
                       ),
                     ),
                   ],
@@ -131,39 +144,50 @@ class _RegistroScreenState extends State<RegistroScreen> {
                 TextFormField(
                   controller: _correoController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(labelText: 'Correo Electrónico *', border: OutlineInputBorder()),
-                  validator: (v) => v == null || !v.contains('@') ? 'Correo no válido' : null,
+                  decoration: const InputDecoration(
+                      labelText: 'Correo Electrónico *',
+                      border: OutlineInputBorder()),
+                  validator: (v) =>
+                      v == null || !v.contains('@') ? 'Correo no válido' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _contraseniaController,
                   obscureText: true,
-                  decoration: const InputDecoration(labelText: 'Contraseña * (mínimo 6 caracteres)', border: OutlineInputBorder()),
-                  validator: (v) => v == null || v.length < 6 ? 'Mínimo 6 caracteres' : null,
+                  decoration: const InputDecoration(
+                      labelText: 'Contraseña * (mínimo 6 caracteres)',
+                      border: OutlineInputBorder()),
+                  validator: (v) =>
+                      v == null || v.length < 6 ? 'Mínimo 6 caracteres' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _telefonoController,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(labelText: 'Teléfono / Celular', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                      labelText: 'Teléfono / Celular',
+                      border: OutlineInputBorder()),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _direccionController,
-                  decoration: const InputDecoration(labelText: 'Dirección de Referencia', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                      labelText: 'Dirección de Referencia',
+                      border: OutlineInputBorder()),
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: _cargando ? null : _registrarCliente,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Colors.blueAccent,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
                   child: _cargando
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Registrarse', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Registrarse',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),

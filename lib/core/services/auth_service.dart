@@ -1,13 +1,21 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import '../constants/api_constants.dart';
 import '../models/usuario_model.dart';
+import '../network/api_client.dart';
+import '../network/api_exception.dart';
+import '../session/session_manager.dart';
 
+/// Autenticación del cliente (contrato real POST /clientes y POST /sesion).
+///
+/// Usa el cliente centralizado + sesión persistente con vencimiento.
 class AuthService {
-  /**
-   * CU01 / RF01: Registrar nuevo cliente
-   */
+  final ApiClient _api;
+  final SessionManager _sesiones;
+
+  AuthService({ApiClient? api, SessionManager? sesiones})
+      : _api = api ?? ApiClient(),
+        _sesiones = sesiones ?? SessionManager() {
+    _api.onNoAutorizado = null;
+  }
+
   Future<ClientePerfilModel> registrarCliente({
     required String nombres,
     required String apellidos,
@@ -18,82 +26,78 @@ class AuthService {
     String? fechaNacimiento,
     Map<String, dynamic>? preferencias,
   }) async {
-    final url = Uri.parse(ApiConstants.endpointClientes);
-
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'nombres': nombres,
-        'apellidos': apellidos,
-        'correo_electronico': correoElectronico,
-        'contrasenia': contrasenia,
-        'telefono': telefono,
-        'direccion_referencia': direccionReferencia,
-        'fecha_nacimiento': fechaNacimiento,
-        'preferencias': preferencias ?? {},
-      }),
-    );
-
-    if (response.statusCode == 201) {
-      final json = jsonDecode(utf8.decode(response.bodyBytes));
-      return ClientePerfilModel.fromJson(json);
-    } else if (response.statusCode == 409) {
-      final json = jsonDecode(utf8.decode(response.bodyBytes));
-      throw Exception(json['detail'] ?? 'El correo electrónico ya se encuentra registrado.');
-    } else {
-      throw Exception('Error al registrar cliente: ${response.statusCode}');
+    try {
+      return await _api.post<ClientePerfilModel>(
+        '/clientes',
+        cuerpo: {
+          'nombres': nombres,
+          'apellidos': apellidos,
+          'correo_electronico': correoElectronico,
+          'contrasenia': contrasenia,
+          if (telefono != null && telefono.trim().isNotEmpty)
+            'telefono': telefono.trim(),
+          if (direccionReferencia != null &&
+              direccionReferencia.trim().isNotEmpty)
+            'direccion_referencia': direccionReferencia.trim(),
+          if (fechaNacimiento != null && fechaNacimiento.trim().isNotEmpty)
+            'fecha_nacimiento': fechaNacimiento.trim(),
+          'preferencias': preferencias ?? {},
+        },
+        convertir: (j) =>
+            ClientePerfilModel.fromJson((j as Map).cast<String, dynamic>()),
+      );
+    } on ApiException catch (e) {
+      if (e.statusCode == 409) {
+        throw const ApiException(
+          statusCode: 409,
+          mensaje: 'Ese correo ya tiene una cuenta. Inicia sesión.',
+        );
+      }
+      rethrow;
     }
   }
 
-  /**
-   * CU01 / RF01: Iniciar sesión
-   */
   Future<TokenRespuestaModel> iniciarSesion({
     required String correoElectronico,
     required String contrasenia,
   }) async {
-    final url = Uri.parse(ApiConstants.endpointSesion);
-
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'correo_electronico': correoElectronico,
-        'contrasenia': contrasenia,
-      }),
-    );
-
-    if (response.statusCode == 200) {
-      final json = jsonDecode(utf8.decode(response.bodyBytes));
-      final tokenRespuesta = TokenRespuestaModel.fromJson(json);
-
-      // Guardar token y usuario en SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('fs_token', tokenRespuesta.accessToken);
-      await prefs.setString('fs_usuario', jsonEncode(tokenRespuesta.usuario.toJson()));
-
-      return tokenRespuesta;
-    } else if (response.statusCode == 401) {
-      throw Exception('Credenciales incorrectas. Verifique su correo o contraseña.');
-    } else {
-      throw Exception('Error de inicio de sesión: ${response.statusCode}');
+    try {
+      final respuesta = await _api.post<TokenRespuestaModel>(
+        '/sesion',
+        cuerpo: {
+          'correo_electronico': correoElectronico.trim(),
+          'contrasenia': contrasenia,
+        },
+        convertir: (j) =>
+            TokenRespuestaModel.fromJson((j as Map).cast<String, dynamic>()),
+      );
+      await _sesiones.guardar(
+        token: respuesta.accessToken,
+        usuario: respuesta.usuario,
+      );
+      return respuesta;
+    } on ApiException catch (e) {
+      if (e.statusCode == 401) {
+        throw const ApiException(
+          statusCode: 401,
+          mensaje: 'Correo o contraseña incorrectos. Inténtalo de nuevo.',
+        );
+      }
+      rethrow;
     }
   }
 
-  Future<void> cerrarSesion() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('fs_token');
-    await prefs.remove('fs_usuario');
-  }
+  Future<void> cerrarSesion() => _sesiones.limpiar();
 
   Future<String?> obtenerToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('fs_token');
+    final s = await _sesiones.leerValida();
+    return s?.token;
   }
 
   Future<bool> estaAutenticado() async {
-    final token = await obtenerToken();
-    return token != null && token.isNotEmpty;
+    final s = await _sesiones.leerValida();
+    return s != null;
   }
+
+  Future<SesionPersistente?> sesionActual() => _sesiones.leerValida();
 }

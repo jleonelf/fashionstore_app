@@ -1,7 +1,11 @@
-class ApiConstants {
-  // Para emulador Android usar 10.0.2.2, para dispositivo físico o web usar IP de red local
-  static const String baseUrl = 'http://10.0.2.2:8000/api/v1';
+import '../config/api_config.dart';
 
-  static const String endpointClientes = '$baseUrl/clientes';
-  static const String endpointSesion = '$baseUrl/sesion';
+/// Compatibilidad con código del Ciclo 1.
+/// La URL se resuelve desde --dart-define=API_BASE_URL con
+/// valores automáticos por plataforma (ver [ApiConfig]).
+class ApiConstants {
+  static String get baseUrl => ApiConfig.baseUrl;
+
+  static String get endpointClientes => '$baseUrl/clientes';
+  static String get endpointSesion => '$baseUrl/sesion';
 }
