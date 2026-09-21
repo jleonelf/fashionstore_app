@@ -121,12 +121,26 @@ class ApiClient {
     String ruta, {
     Object? cuerpo,
     Map<String, String>? query,
+    String? idempotencyKey,
     required T Function(dynamic json) convertir,
   }) async {
     final r = await _http.patch(
       _uri(ruta, query),
-      headers: await _cabeceras(),
+      headers: await _cabeceras(idempotencyKey: idempotencyKey),
       body: cuerpo == null ? null : jsonEncode(cuerpo),
+    );
+    return _procesar(r, convertir);
+  }
+
+  Future<T> delete<T>(
+    String ruta, {
+    Map<String, String>? query,
+    String? idempotencyKey,
+    required T Function(dynamic json) convertir,
+  }) async {
+    final r = await _http.delete(
+      _uri(ruta, query),
+      headers: await _cabeceras(idempotencyKey: idempotencyKey),
     );
     return _procesar(r, convertir);
   }

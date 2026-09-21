@@ -534,200 +534,205 @@ class _BolsaScreenState extends State<BolsaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: BolsaStore.instancia,
-      builder: (ctx, _) {
-        final bolsa = BolsaStore.instancia;
-        if (bolsa.vacia) {
-          return const VistaVacia(
-            icono: Icons.shopping_bag_outlined,
-            titulo: 'Tu bolsa está vacía',
-            detalle:
-                'Explora el catálogo y agrega las prendas que quieras probarte en tienda.',
-          );
-        }
-        if (_cargandoSuc) {
-          return const VistaCarga(mensaje: 'Cargando sucursales…');
-        }
-        if (_errorSuc != null) {
-          return VistaError(
-            mensaje: _errorSuc!,
-            onReintentar: _cargarSucursales,
-          );
-        }
-        // Carga inicial controlada: solo variantes nunca consultadas inician
-        // una única consulta. Un estado `error` permanece hasta reintento
-        // manual o cambio legítimo de cantidad/destino.
-        for (final item in bolsa.items) {
-          if (_estadoDe(item.varianteId) == EstadoDisponibilidad.noConsultada) {
-            final id = item.varianteId;
-            Future.microtask(() {
-              if (!mounted) return;
-              if (_estadoDe(id) != EstadoDisponibilidad.noConsultada) return;
-              _cargarDisponibilidad(id);
-            });
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(title: const Text('Bolsa de reserva')),
+      body: AnimatedBuilder(
+        animation: BolsaStore.instancia,
+        builder: (ctx, _) {
+          final bolsa = BolsaStore.instancia;
+          if (bolsa.vacia) {
+            return const VistaVacia(
+              icono: Icons.shopping_bag_outlined,
+              titulo: 'Tu bolsa está vacía',
+              detalle:
+                  'Explora el catálogo y agrega las prendas que quieras probarte en tienda.',
+            );
           }
-        }
-        final habilitado = _confirmarHabilitado;
-        final etiqueta = _etiquetaConfirmar;
-        // "Reintentar con la misma solicitud" solo tras un POST real con clave.
-        final mostrarReintentoMismoPost =
-            _errorEnvio != null && _claveActual != null && !_enviando;
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Text(
-                        'Dónde quieres recoger',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Todas las prendas llegan a la misma sucursal.',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        key: const ValueKey('bolsa-destino'),
-                        initialValue: _destinoId,
-                        decoration: const InputDecoration(
-                          labelText: 'Sucursal de destino',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: [
-                          for (final s in _sucursales)
-                            DropdownMenuItem(
-                              value: s.id,
-                              child: Text(
-                                '${s.nombre} · ${s.ciudadNombre ?? ''}',
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                        ],
-                        onChanged: _alCambiarDestino,
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _elegirFecha,
-                              icon: const Icon(Icons.calendar_month_outlined),
-                              label: Text(
-                                _fechaVisita == null
-                                    ? 'Fecha de visita (opcional)'
-                                    : formatoFechaCorta(_fechaVisita),
-                              ),
-                            ),
+          if (_cargandoSuc) {
+            return const VistaCarga(mensaje: 'Cargando sucursales…');
+          }
+          if (_errorSuc != null) {
+            return VistaError(
+              mensaje: _errorSuc!,
+              onReintentar: _cargarSucursales,
+            );
+          }
+          // Carga inicial controlada: solo variantes nunca consultadas inician
+          // una única consulta. Un estado `error` permanece hasta reintento
+          // manual o cambio legítimo de cantidad/destino.
+          for (final item in bolsa.items) {
+            if (_estadoDe(item.varianteId) ==
+                EstadoDisponibilidad.noConsultada) {
+              final id = item.varianteId;
+              Future.microtask(() {
+                if (!mounted) return;
+                if (_estadoDe(id) != EstadoDisponibilidad.noConsultada) return;
+                _cargarDisponibilidad(id);
+              });
+            }
+          }
+          final habilitado = _confirmarHabilitado;
+          final etiqueta = _etiquetaConfirmar;
+          // "Reintentar con la misma solicitud" solo tras un POST real con clave.
+          final mostrarReintentoMismoPost =
+              _errorEnvio != null && _claveActual != null && !_enviando;
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Dónde quieres recoger',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: _obs,
-                        maxLines: 2,
-                        decoration: const InputDecoration(
-                          labelText: 'Comentario (opcional)',
-                          hintText: 'Ej.: pasaré por la tarde',
-                          border: OutlineInputBorder(),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              for (final item in bolsa.items)
-                _TarjetaLinea(
-                  item: item,
-                  destinoId: _destinoId,
-                  estadoDisponibilidad: _estadoDe(item.varianteId),
-                  disponibilidad: _disponibilidad[item.varianteId],
-                  origenes: _origenesPara(item),
-                  sucursales: _sucursales,
-                  onRecargarDisponibilidad: () =>
-                      _reintentarDisponibilidad(item.varianteId),
-                  onCambiarCantidad: (nueva) => _cambiarCantidad(item, nueva),
-                ),
-              const SizedBox(height: 10),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Total estimado'),
-                          Text(
-                            formatoPrecio(bolsa.totalEstimado),
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        '${bolsa.totalPrendas} prenda(s) · se paga en tienda',
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                      if (_errorEnvio != null) ...[
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Todas las prendas llegan a la misma sucursal.',
+                          style: TextStyle(color: Colors.grey),
+                        ),
                         const SizedBox(height: 8),
-                        Text(
-                          _errorEnvio!,
-                          style: const TextStyle(color: Colors.red),
+                        DropdownButtonFormField<String>(
+                          key: const ValueKey('bolsa-destino'),
+                          initialValue: _destinoId,
+                          decoration: const InputDecoration(
+                            labelText: 'Sucursal de destino',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: [
+                            for (final s in _sucursales)
+                              DropdownMenuItem(
+                                value: s.id,
+                                child: Text(
+                                  '${s.nombre} · ${s.ciudadNombre ?? ''}',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                          ],
+                          onChanged: _alCambiarDestino,
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _elegirFecha,
+                                icon: const Icon(Icons.calendar_month_outlined),
+                                label: Text(
+                                  _fechaVisita == null
+                                      ? 'Fecha de visita (opcional)'
+                                      : formatoFechaCorta(_fechaVisita),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _obs,
+                          maxLines: 2,
+                          decoration: const InputDecoration(
+                            labelText: 'Comentario (opcional)',
+                            hintText: 'Ej.: pasaré por la tarde',
+                            border: OutlineInputBorder(),
+                          ),
                         ),
                       ],
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          key: const ValueKey('bolsa-confirmar'),
-                          onPressed: habilitado ? _confirmar : null,
-                          icon: _enviando
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.check_circle_outline),
-                          label: Text(etiqueta),
-                        ),
-                      ),
-                      if (mostrarReintentoMismoPost)
-                        TextButton.icon(
-                          onPressed: _confirmar,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text(
-                            'Reintentar con la misma solicitud',
-                          ),
-                        ),
-                      Text(
-                        'Destino: ${_destino()?.nombre ?? '—'}',
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
+                const SizedBox(height: 10),
+                for (final item in bolsa.items)
+                  _TarjetaLinea(
+                    item: item,
+                    destinoId: _destinoId,
+                    estadoDisponibilidad: _estadoDe(item.varianteId),
+                    disponibilidad: _disponibilidad[item.varianteId],
+                    origenes: _origenesPara(item),
+                    sucursales: _sucursales,
+                    onRecargarDisponibilidad: () =>
+                        _reintentarDisponibilidad(item.varianteId),
+                    onCambiarCantidad: (nueva) => _cambiarCantidad(item, nueva),
+                  ),
+                const SizedBox(height: 10),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Total estimado'),
+                            Text(
+                              formatoPrecio(bolsa.totalEstimado),
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          '${bolsa.totalPrendas} prenda(s) · se paga en tienda',
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                        if (_errorEnvio != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            _errorEnvio!,
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        ],
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            key: const ValueKey('bolsa-confirmar'),
+                            onPressed: habilitado ? _confirmar : null,
+                            icon: _enviando
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.check_circle_outline),
+                            label: Text(etiqueta),
+                          ),
+                        ),
+                        if (mostrarReintentoMismoPost)
+                          TextButton.icon(
+                            onPressed: _confirmar,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text(
+                              'Reintentar con la misma solicitud',
+                            ),
+                          ),
+                        Text(
+                          'Destino: ${_destino()?.nombre ?? '—'}',
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

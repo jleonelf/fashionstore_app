@@ -1,6 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Necesario en release y debug: la app consume el backend por HTTP(S). -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Probador virtual Decart: video en vivo sin audio (sin RECORD_AUDIO). -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <!-- Búsqueda por voz en catálogo (CU20). Exclusivo para entrada por voz; el probador virtual no usa ni transmite audio. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="fashionstore_movil"
         android:name="${applicationName}"

@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import '../../core/models/reserva_model.dart';
 import '../../core/services/reserva_service.dart';
 import '../../core/ui/async_view.dart';
+import '../../core/ui/colores.dart';
 import '../../core/ui/estado_chip.dart';
 import '../../core/ui/formato.dart';
+import 'bolsa_screen.dart';
+import 'bolsa_store.dart';
 import 'reserva_detalle_screen.dart';
 
 /// Listado paginado de reservas propias.
@@ -73,6 +76,63 @@ class _ReservasScreenState extends State<ReservasScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: AnimatedBuilder(
+            animation: BolsaStore.instancia,
+            builder: (_, __) {
+              final n = BolsaStore.instancia.totalPrendas;
+              return Card(
+                child: ListTile(
+                  leading: const Icon(Icons.shopping_bag_outlined,
+                      color: ColoresFS.brassStrong),
+                  title: const Text('Mis prendas reservadas',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: Text(
+                    n == 0
+                        ? 'Tu bolsa para apartar y probar en tienda.'
+                        : '$n prenda(s) listas para confirmar.',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: n > 0
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: ColoresFS.brassSoft,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text('$n',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  color: ColoresFS.brassStrong)),
+                        )
+                      : const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => BolsaScreen(
+                          onReservaCreada: () => _cargar(inicial: true),
+                        ),
+                      ),
+                    );
+                    if (mounted) _cargar(inicial: true);
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+        Expanded(child: _lista()),
+      ],
+    );
+  }
+
+  Widget _lista() {
     if (_cargando) return const VistaCarga(mensaje: 'Buscando tus reservas…');
     if (_error != null) {
       return VistaError(

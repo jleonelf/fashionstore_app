@@ -43,23 +43,23 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (!mounted) return;
+      setState(() => _cargando = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('¡Hola de nuevo, ${respuesta.usuario.nombreCompleto}!'),
           backgroundColor: ColoresFS.success,
         ),
       );
+      // Debe ser la última operación: el callback normalmente hace pop y
+      // desmonta este State. No volver a usar context ni setState después.
       widget.onLoginOk?.call();
+      return;
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _mensajeError = e.toString().replaceAll('Exception: ', '');
+        _cargando = false;
       });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _cargando = false;
-        });
-      }
     }
   }
 

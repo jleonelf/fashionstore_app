@@ -113,6 +113,26 @@ class Producto {
     final p = imagenes.where((e) => e.esPrincipal);
     return (p.isNotEmpty ? p.first : imagenes.first).enlace;
   }
+
+  /// Primera imagen de la galería ordenada de la prenda (CU17 / Decart):
+  /// 1. Si existe imagen principal, ocupa la primera posición.
+  /// 2. Si hay propiedad de orden, utiliza el menor orden.
+  /// 3. Exclusivamente HTTPS; retorna null si no cumple para no enviar datos inválidos.
+  String? get primeraImagenOrdenada {
+    if (imagenes.isEmpty) return null;
+    final ordenadas = List<ImagenProducto>.from(imagenes);
+    ordenadas.sort((a, b) {
+      if (a.esPrincipal != b.esPrincipal) {
+        return a.esPrincipal ? -1 : 1;
+      }
+      return a.orden.compareTo(b.orden);
+    });
+    final enlace = ordenadas.first.enlace.trim();
+    if (enlace.toLowerCase().startsWith('https://')) {
+      return enlace;
+    }
+    return null;
+  }
 }
 
 class Variante {

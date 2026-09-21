@@ -4,6 +4,8 @@ import '../../core/models/catalogo_model.dart';
 import '../../core/services/catalogo_service.dart';
 import '../../core/ui/async_view.dart';
 import '../../core/ui/formato.dart';
+import '../busqueda/buscador_voz.dart';
+import '../recomendaciones/recomendaciones_section.dart';
 import 'producto_detalle_screen.dart';
 
 /// Catálogo con búsqueda, filtros y paginado.
@@ -314,6 +316,32 @@ class _CatalogoScreenState extends State<CatalogoScreen> {
                   if (_errorFiltros != null)
                     Text(_errorFiltros!,
                         style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 8),
+                  // Ciclo 3: voz como ayuda del buscador + recomendaciones,
+                  // colapsados para no sobrecargar el catálogo.
+                  const ExpansionTile(
+                    leading: Icon(Icons.mic_none_outlined),
+                    title: Text('Buscar por voz o texto'),
+                    subtitle:
+                        Text('Dicta, revisa el texto y encuentra prendas'),
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(8, 0, 8, 12),
+                        child: BuscadorConVoz(conTarjeta: false),
+                      ),
+                    ],
+                  ),
+                  const ExpansionTile(
+                    leading: Icon(Icons.auto_awesome_outlined),
+                    title: Text('Sugerencias para ti'),
+                    subtitle: Text('Prendas disponibles según tus visitas'),
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(8, 0, 8, 12),
+                        child: RecomendacionesSection(conTarjeta: false),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
+import 'core/config/stripe_config.dart';
 import 'core/network/api_client.dart';
 import 'core/services/auth_service.dart';
 import 'core/session/sesion_expirada.dart';
 import 'core/ui/tema.dart';
-import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/auth/presentation/screens/splash_screen.dart';
 import 'features/home/home_screen.dart';
 
@@ -13,7 +15,15 @@ import 'features/home/home_screen.dart';
 final GlobalKey<ScaffoldMessengerState> fsScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('es');
+  // Stripe Test como único pago: clave publicable por entorno. Sin clave, la
+  // app funciona salvo el pago, que explica cómo configurarla.
+  if (StripeConfig.estaConfigurada) {
+    Stripe.publishableKey = StripeConfig.publishableKey;
+    await Stripe.instance.applySettings();
+  }
   runApp(const FashionStoreApp());
 }
 
@@ -46,6 +56,9 @@ class _FashionStoreAppState extends State<FashionStoreApp> {
 
   /// Gancho síncrono del ApiClient: delega al manejador con protección
   /// contra ráfagas (un aviso, una limpieza, navegación segura).
+  /// En modo invitado (catálogo público) el 401 solo limpia la sesión y
+  /// avisa; la puerta de auth (`PuertaAuth`) pide login únicamente al
+  /// intentar la acción protegida que lo provocó.
   void _alRecibir401Global() {
     _manejador401.manejar(
       limpiarSesion: AuthService().cerrarSesion,
@@ -71,8 +84,14 @@ class _FashionStoreAppState extends State<FashionStoreApp> {
         _generacion++;
       });
 
+  void _sesionIniciada() => setState(() => _tieneSesion = true);
+
   @override
   Widget build(BuildContext context) {
+    // Corrección final: catálogo público sin iniciar sesión. Tanto con
+    // sesión como en modo invitado se entra a Home; la autenticación se
+    // exige solo en acciones protegidas vía PuertaAuth. El 401 global ya
+    // no expulsa al login: solo limpia y avisa.
     return MaterialApp(
       title: 'FashionStore',
       debugShowCheckedModeBanner: false,
@@ -80,15 +99,11 @@ class _FashionStoreAppState extends State<FashionStoreApp> {
       scaffoldMessengerKey: fsScaffoldMessengerKey,
       home: _tieneSesion == null
           ? SplashScreen(onDecidido: _irA)
-          : _tieneSesion == true
-              ? HomeScreen(
-                  key: ValueKey('home-$_generacion'),
-                  onSesionCerrada: () => _irA(false),
-                )
-              : LoginScreen(
-                  key: ValueKey('login-$_generacion'),
-                  onLoginOk: () => _irA(true),
-                ),
+          : HomeScreen(
+              key: ValueKey('home-$_generacion'),
+              onSesionCerrada: () => _irA(false),
+              onSesionIniciada: _sesionIniciada,
+            ),
     );
   }
 }

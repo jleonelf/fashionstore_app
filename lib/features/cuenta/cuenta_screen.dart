@@ -3,11 +3,15 @@ import 'package:flutter/material.dart';
 import '../../core/config/api_config.dart';
 import '../../core/models/usuario_model.dart';
 import '../../core/services/auth_service.dart';
+import '../auth/presentation/screens/login_screen.dart';
 
 /// Perfil + ayuda de conexión + cierre de sesión.
+/// En modo invitado muestra acceso a login/registro sin bloquear el catálogo.
 class CuentaScreen extends StatefulWidget {
   final VoidCallback onSesionCerrada;
-  const CuentaScreen({super.key, required this.onSesionCerrada});
+  final VoidCallback? onSesionIniciada;
+  const CuentaScreen(
+      {super.key, required this.onSesionCerrada, this.onSesionIniciada});
 
   @override
   State<CuentaScreen> createState() => _CuentaScreenState();
@@ -61,6 +65,75 @@ class _CuentaScreenState extends State<CuentaScreen> {
   Widget build(BuildContext context) {
     if (_cargando) {
       return const Center(child: CircularProgressIndicator());
+    }
+    if (_usuario == null) {
+      // Modo invitado: catálogo público + puerta de login solo aquí.
+      return SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Explora sin cuenta',
+                        style: TextStyle(fontWeight: FontWeight.w800)),
+                    SizedBox(height: 6),
+                    Text(
+                      'El catálogo es público. Inicia sesión solo cuando quieras comprar, reservar o probar prendas.',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton.icon(
+              onPressed: () async {
+                final ok = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => Scaffold(
+                      appBar: AppBar(title: const Text('Inicia sesión')),
+                      body: LoginScreen(onLoginOk: () {}),
+                    ),
+                  ),
+                );
+                // LoginScreen dentro de Home ya gestiona el retorno; aquí
+                // solo refrescamos por si el flujo devolvió directo.
+                if (ok == true && context.mounted) {
+                  await _cargar();
+                  widget.onSesionIniciada?.call();
+                } else {
+                  await _cargar();
+                }
+              },
+              icon: const Icon(Icons.login_outlined),
+              label: const Text('Iniciar sesión'),
+            ),
+            const SizedBox(height: 10),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Conexión',
+                        style: TextStyle(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 6),
+                    SelectableText(
+                      ApiConfig.baseUrl,
+                      style: TextStyle(color: Colors.grey.shade800),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
     }
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),

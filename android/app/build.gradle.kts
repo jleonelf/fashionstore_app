@@ -32,6 +32,16 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    // Probador virtual: SDK Android oficial Decart 0.7.10 (lucy-2.5).
+    // Sin ML Kit, MediaPipe, TFLite ni WebRTC manual.
+    dependencies {
+        implementation("com.github.DecartAI:decart-android:0.7.10")
+    }
 }
 
 kotlin {

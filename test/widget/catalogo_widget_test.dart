@@ -1,9 +1,11 @@
 import 'dart:convert';
 
+import 'package:fashionstore_movil/core/models/catalogo_model.dart';
 import 'package:fashionstore_movil/core/network/api_client.dart';
 import 'package:fashionstore_movil/core/services/catalogo_service.dart';
 import 'package:fashionstore_movil/core/session/session_manager.dart';
 import 'package:fashionstore_movil/features/catalogo/catalogo_screen.dart';
+import 'package:fashionstore_movil/features/catalogo/producto_detalle_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -91,5 +93,125 @@ void main() {
 
     expect(find.text('Sin resultados'), findsOneWidget);
     expect(find.text('Quitar filtros'), findsOneWidget);
+  });
+
+  testWidgets(
+      'Detalle muestra botón Probar con realidad aumentada habilitado cuando hay imagen compatible',
+      (tester) async {
+    final prodJson = _productoJson('p-1', 'Camisa Lino');
+    prodJson['imagenes'] = [
+      {
+        'id': 'img-1',
+        'enlace_imagen': 'https://images.example.com/lino.webp',
+        'es_principal': true,
+        'orden': 1,
+      }
+    ];
+    final producto = Producto.fromJson(prodJson);
+
+    final mock = MockClient((req) async {
+      final path = req.url.path;
+      if (path.endsWith('/variantes')) {
+        return http.Response(
+          jsonEncode([
+            {
+              'id': 'v-1',
+              'producto_id': 'p-1',
+              'sku': 'LIN-M',
+              'talla': 'M',
+              'color': 'Blanco',
+              'precio': '150.00',
+              'activa': true,
+            }
+          ]),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      if (path.endsWith('/disponibilidad')) {
+        return http.Response('[]', 200,
+            headers: {'content-type': 'application/json'});
+      }
+      return http.Response('Not found', 404);
+    });
+
+    final api = ApiClient(httpClient: mock, sesiones: SessionManager());
+    final catServicio = CatalogoService(api: api);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProductoDetalleScreen(
+          producto: producto,
+          servicio: catServicio,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final btn = find.text('Probar con realidad aumentada');
+    expect(btn, findsOneWidget);
+    final elevatedBtn = tester.widget<ElevatedButton>(
+      find.ancestor(of: btn, matching: find.byType(ElevatedButton)),
+    );
+    expect(elevatedBtn.onPressed, isNotNull);
+  });
+
+  testWidgets(
+      'Detalle deshabilita botón y explica cuando no hay imagen compatible',
+      (tester) async {
+    final prodJson = _productoJson('p-2', 'Prenda Sin Foto');
+    prodJson['imagenes'] = [];
+    final producto = Producto.fromJson(prodJson);
+
+    final mock = MockClient((req) async {
+      final path = req.url.path;
+      if (path.endsWith('/variantes')) {
+        return http.Response(
+          jsonEncode([
+            {
+              'id': 'v-2',
+              'producto_id': 'p-2',
+              'sku': 'NOFOTO-S',
+              'talla': 'S',
+              'color': 'Negro',
+              'precio': '80.00',
+              'activa': true,
+            }
+          ]),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      if (path.endsWith('/disponibilidad')) {
+        return http.Response('[]', 200,
+            headers: {'content-type': 'application/json'});
+      }
+      return http.Response('Not found', 404);
+    });
+
+    final api = ApiClient(httpClient: mock, sesiones: SessionManager());
+    final catServicio = CatalogoService(api: api);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProductoDetalleScreen(
+          producto: producto,
+          servicio: catServicio,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final btn = find.text('Probar con realidad aumentada');
+    expect(btn, findsOneWidget);
+    final elevatedBtn = tester.widget<ElevatedButton>(
+      find.ancestor(of: btn, matching: find.byType(ElevatedButton)),
+    );
+    expect(elevatedBtn.onPressed, isNull);
+    expect(
+      find.text(
+          'Esta prenda todavía no tiene una imagen compatible con el probador.'),
+      findsOneWidget,
+    );
   });
 }
