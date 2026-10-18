@@ -10,6 +10,8 @@
 - [flutter.md](flutter.md): persistencia SQLite, compra/reserva diferidas, Stripe online y FCM.
 - [integracion.md](integracion.md): contratos funcionales de todos los módulos relacionados.
 - [payloads.md](payloads.md): ejemplos de mensajes para consumidores y dobles de prueba.
+- [trazabilidad-cu.md](trazabilidad-cu.md): cambios de CU01–CU25 y responsabilidades de CU26–CU37.
+- [flujo-trabajo.md](flujo-trabajo.md): entregas, PRs y coordinación con backend y web.
 - [version.json](version.json): versión y SHA-256 de los tres JSON comunes.
 
 Flutter es exclusivamente cliente. No implementa caja, venta de contado ni roles administrativos. Puede avanzar en un PR propio citando la versión del contrato y el PR del backend. Los consumidores se preparan con respuestas simuladas basadas en `interfaz.json`; la integración final se valida contra OpenAPI real y Android físico para push y probador. Los pendientes locales conservan su `version_esquema` y se migran de forma explícita si el contrato cambia.
