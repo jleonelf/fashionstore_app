@@ -2,9 +2,13 @@
 
 **Estado:** diseño de cliente móvil previo a implementación. Comparte comandos/resultados con [compartido.md](compartido.md), no la persistencia física de Angular.
 
+## Ubicación de la implementación
+
+[paquetes-cu.md](paquetes-cu.md) fija las carpetas de CU28–CU30 y CU34 bajo `lib/features/<paquete>/`. Los servicios y modelos específicos se mantienen en el mismo paquete; `lib/core/` conserva sesión, red, SQLite y sincronización reutilizable. CU34 crea `lib/features/posventa/saldo/`; checkout lo consume sin duplicar el cálculo del saldo. CU31–CU33 y CU35–CU37 no crean pantallas administrativas móviles. Las nuevas funciones y métodos Dart usan nombres en español `camelCase`, salvo firmas exigidas por SDK o framework.
+
 ## Alcance y almacenamiento
 
-Flutter es exclusivamente cliente: catálogo descargado, reserva propia, carrito/solicitud de compra diferida, pendientes/resultados, pago Stripe **online**, saldo consultable/utilizable online, notificaciones FCM y probador Decart existente. No incluye roles de personal, caja, efectivo ni venta de contado offline; esta diferencia con el texto académico se registra en trazabilidad.
+Flutter es exclusivamente cliente: catálogo descargado, reserva propia, carrito/solicitud de compra diferida, pendientes/resultados, pago Stripe **online**, saldo consultable/utilizable online desde `lib/features/posventa/saldo/`, notificaciones FCM y probador Decart existente. No incluye roles de personal, caja, efectivo ni venta de contado offline; esta diferencia con el texto académico se registra en trazabilidad.
 
 SQLite tendrá tablas o estructuras equivalentes versionadas para catálogo/variantes por empresa, copia de sucursales permitidas, identidad local mínima, solicitudes y líneas, cola de operaciones, resultados/notificaciones y metadatos de sincronización. No guardar tarjeta ni clave permanente de proveedores. Cada fila privada se vincula a empresa y usuario; logout/cambio de cuenta oculta datos propios y no los sincroniza con otra identidad.
 
