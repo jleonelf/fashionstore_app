@@ -3,14 +3,14 @@
 // idempotente, liberación y ausencia de secretos.
 import 'dart:convert';
 
-import 'package:fashionstore_movil/core/models/catalogo_model.dart';
-import 'package:fashionstore_movil/core/models/probador_model.dart';
+import 'package:fashionstore_movil/features/catalogo/models/catalogo_model.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/models/probador_model.dart';
 import 'package:fashionstore_movil/core/network/api_client.dart';
-import 'package:fashionstore_movil/core/services/ia_service.dart';
-import 'package:fashionstore_movil/core/services/probador_service.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/services/ia_service.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/services/probador_service.dart';
 import 'package:fashionstore_movil/core/session/session_manager.dart';
-import 'package:fashionstore_movil/features/probador/control_probador.dart';
-import 'package:fashionstore_movil/features/probador/puente_decart.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/probador/control_probador.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/probador/puente_decart.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';

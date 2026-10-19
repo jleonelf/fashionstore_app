@@ -3,16 +3,16 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fashionstore_movil/core/models/probador_model.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/models/probador_model.dart';
 import 'package:fashionstore_movil/core/network/api_client.dart';
-import 'package:fashionstore_movil/core/services/carrito_service.dart';
-import 'package:fashionstore_movil/core/services/ia_service.dart';
-import 'package:fashionstore_movil/core/services/probador_service.dart';
+import 'package:fashionstore_movil/features/ventas_pagos/services/carrito_service.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/services/ia_service.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/services/probador_service.dart';
 import 'package:fashionstore_movil/core/session/session_manager.dart';
-import 'package:fashionstore_movil/features/carrito/carrito_store.dart';
-import 'package:fashionstore_movil/features/probador/probador_screen.dart';
-import 'package:fashionstore_movil/features/probador/puente_decart.dart';
-import 'package:fashionstore_movil/features/reservas/bolsa_store.dart';
+import 'package:fashionstore_movil/features/ventas_pagos/carrito/carrito_store.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/probador/probador_screen.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/probador/puente_decart.dart';
+import 'package:fashionstore_movil/features/reservas_traslados/reservas/bolsa_store.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

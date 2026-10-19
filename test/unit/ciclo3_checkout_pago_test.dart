@@ -1,13 +1,13 @@
 // Checkout recojo/delivery, cotización, pagos, reintento y pedidos.
 import 'dart:convert';
 
-import 'package:fashionstore_movil/core/models/checkout_model.dart';
+import 'package:fashionstore_movil/features/ventas_pagos/models/checkout_model.dart';
 import 'package:fashionstore_movil/core/network/api_client.dart';
-import 'package:fashionstore_movil/core/services/checkout_service.dart';
-import 'package:fashionstore_movil/core/services/entrega_service.dart';
-import 'package:fashionstore_movil/core/services/pago_service.dart';
+import 'package:fashionstore_movil/features/ventas_pagos/services/checkout_service.dart';
+import 'package:fashionstore_movil/features/ventas_pagos/services/entrega_service.dart';
+import 'package:fashionstore_movil/features/ventas_pagos/services/pago_service.dart';
 import 'package:fashionstore_movil/core/session/session_manager.dart';
-import 'package:fashionstore_movil/features/pago/stripe_port.dart';
+import 'package:fashionstore_movil/features/ventas_pagos/pago/stripe_port.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';

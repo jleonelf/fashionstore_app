@@ -1,11 +1,11 @@
 // Limpieza al cerrar sesión: carrito, probador y 401 concurrente único.
 import 'package:fashionstore_movil/core/network/api_client.dart';
-import 'package:fashionstore_movil/core/services/carrito_service.dart';
+import 'package:fashionstore_movil/features/ventas_pagos/services/carrito_service.dart';
 import 'package:fashionstore_movil/core/session/sesion_expirada.dart';
 import 'package:fashionstore_movil/core/session/session_manager.dart';
-import 'package:fashionstore_movil/features/carrito/carrito_store.dart';
-import 'package:fashionstore_movil/features/probador/control_probador.dart';
-import 'package:fashionstore_movil/features/probador/puente_decart.dart';
+import 'package:fashionstore_movil/features/ventas_pagos/carrito/carrito_store.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/probador/control_probador.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/probador/puente_decart.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';

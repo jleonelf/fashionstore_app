@@ -2,12 +2,12 @@
 import 'dart:convert';
 
 import 'package:fashionstore_movil/core/network/api_client.dart';
-import 'package:fashionstore_movil/core/services/catalogo_service.dart';
-import 'package:fashionstore_movil/core/services/ia_service.dart';
+import 'package:fashionstore_movil/features/catalogo/services/catalogo_service.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/services/ia_service.dart';
 import 'package:fashionstore_movil/core/session/session_manager.dart';
-import 'package:fashionstore_movil/features/busqueda/buscador_voz.dart';
-import 'package:fashionstore_movil/features/busqueda/control_voz.dart';
-import 'package:fashionstore_movil/features/recomendaciones/recomendaciones_section.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/busqueda/buscador_voz.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/busqueda/control_voz.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/recomendaciones/recomendaciones_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;

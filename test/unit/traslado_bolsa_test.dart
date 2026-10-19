@@ -1,8 +1,8 @@
-import 'package:fashionstore_movil/core/models/catalogo_model.dart';
-import 'package:fashionstore_movil/core/models/organizacion_model.dart';
-import 'package:fashionstore_movil/core/models/reserva_model.dart';
-import 'package:fashionstore_movil/features/reservas/bolsa_store.dart';
-import 'package:fashionstore_movil/features/reservas/origen_helper.dart';
+import 'package:fashionstore_movil/features/catalogo/models/catalogo_model.dart';
+import 'package:fashionstore_movil/features/organizacion/models/organizacion_model.dart';
+import 'package:fashionstore_movil/features/reservas_traslados/models/reserva_model.dart';
+import 'package:fashionstore_movil/features/reservas_traslados/reservas/bolsa_store.dart';
+import 'package:fashionstore_movil/features/reservas_traslados/reservas/origen_helper.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 SucursalModel _sucursal(String id, [String nombre = 'Sucursal']) =>

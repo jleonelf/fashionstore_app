@@ -1,4 +1,4 @@
-import 'package:fashionstore_movil/core/models/usuario_model.dart';
+import 'package:fashionstore_movil/features/identidad_empresas/models/usuario_model.dart';
 import 'package:fashionstore_movil/core/network/api_exception.dart';
 import 'package:fashionstore_movil/core/session/session_manager.dart';
 import 'package:flutter_test/flutter_test.dart';

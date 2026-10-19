@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/usuario_model.dart';
+import '../../features/identidad_empresas/models/usuario_model.dart';
 
 /// Sesión persistente del cliente.
 ///
