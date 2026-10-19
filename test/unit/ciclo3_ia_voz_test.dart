@@ -1,12 +1,12 @@
 // IA cliente y voz: recomendaciones, búsqueda, permisos y fallback.
 import 'dart:convert';
 
-import 'package:fashionstore_movil/core/models/catalogo_model.dart';
+import 'package:fashionstore_movil/features/catalogo/models/catalogo_model.dart';
 import 'package:fashionstore_movil/core/network/api_client.dart';
-import 'package:fashionstore_movil/core/services/catalogo_service.dart';
-import 'package:fashionstore_movil/core/services/ia_service.dart';
+import 'package:fashionstore_movil/features/catalogo/services/catalogo_service.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/services/ia_service.dart';
 import 'package:fashionstore_movil/core/session/session_manager.dart';
-import 'package:fashionstore_movil/features/busqueda/control_voz.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/busqueda/control_voz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';

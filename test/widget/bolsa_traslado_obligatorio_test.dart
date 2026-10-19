@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fashionstore_movil/core/network/api_client.dart';
-import 'package:fashionstore_movil/core/services/catalogo_service.dart';
-import 'package:fashionstore_movil/core/services/reserva_service.dart';
-import 'package:fashionstore_movil/core/services/sucursal_service.dart';
+import 'package:fashionstore_movil/features/catalogo/services/catalogo_service.dart';
+import 'package:fashionstore_movil/features/reservas_traslados/services/reserva_service.dart';
+import 'package:fashionstore_movil/features/organizacion/services/sucursal_service.dart';
 import 'package:fashionstore_movil/core/session/session_manager.dart';
-import 'package:fashionstore_movil/features/reservas/bolsa_screen.dart';
-import 'package:fashionstore_movil/features/reservas/bolsa_store.dart';
+import 'package:fashionstore_movil/features/reservas_traslados/reservas/bolsa_screen.dart';
+import 'package:fashionstore_movil/features/reservas_traslados/reservas/bolsa_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;

@@ -4,11 +4,11 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/config/stripe_config.dart';
 import 'core/network/api_client.dart';
-import 'core/services/auth_service.dart';
+import 'features/identidad_empresas/services/auth_service.dart';
 import 'core/session/sesion_expirada.dart';
 import 'core/ui/tema.dart';
-import 'features/auth/presentation/screens/splash_screen.dart';
-import 'features/home/home_screen.dart';
+import 'features/identidad_empresas/auth/presentation/screens/splash_screen.dart';
+import 'features/experiencia_cliente/home/home_screen.dart';
 
 /// Clave global del ScaffoldMessenger: permite mostrar el aviso de sesión
 /// vencida sin depender de un BuildContext que pueda estar desmontado.

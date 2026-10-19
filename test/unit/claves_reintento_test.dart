@@ -1,5 +1,5 @@
 import 'package:fashionstore_movil/core/network/api_exception.dart';
-import 'package:fashionstore_movil/features/reservas/claves_reintento.dart';
+import 'package:fashionstore_movil/features/reservas_traslados/reservas/claves_reintento.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

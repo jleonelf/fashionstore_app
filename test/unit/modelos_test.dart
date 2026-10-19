@@ -1,7 +1,7 @@
-import 'package:fashionstore_movil/core/models/catalogo_model.dart';
-import 'package:fashionstore_movil/core/models/compra_model.dart';
-import 'package:fashionstore_movil/core/models/reserva_model.dart';
-import 'package:fashionstore_movil/core/models/traslado_model.dart';
+import 'package:fashionstore_movil/features/catalogo/models/catalogo_model.dart';
+import 'package:fashionstore_movil/features/ventas_pagos/models/compra_model.dart';
+import 'package:fashionstore_movil/features/reservas_traslados/models/reserva_model.dart';
+import 'package:fashionstore_movil/features/reservas_traslados/models/traslado_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

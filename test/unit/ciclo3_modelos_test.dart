@@ -1,10 +1,10 @@
 // Serialización de modelos Ciclo 3 + importes String/número.
-import 'package:fashionstore_movil/core/models/carrito_model.dart';
-import 'package:fashionstore_movil/core/models/checkout_model.dart';
-import 'package:fashionstore_movil/core/models/entrega_model.dart';
-import 'package:fashionstore_movil/core/models/ia_model.dart';
-import 'package:fashionstore_movil/core/models/pago_model.dart';
-import 'package:fashionstore_movil/core/models/probador_model.dart';
+import 'package:fashionstore_movil/features/ventas_pagos/models/carrito_model.dart';
+import 'package:fashionstore_movil/features/ventas_pagos/models/checkout_model.dart';
+import 'package:fashionstore_movil/features/ventas_pagos/models/entrega_model.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/models/ia_model.dart';
+import 'package:fashionstore_movil/features/ventas_pagos/models/pago_model.dart';
+import 'package:fashionstore_movil/features/experiencia_cliente/models/probador_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

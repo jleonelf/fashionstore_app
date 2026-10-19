@@ -2,11 +2,11 @@
 import 'dart:convert';
 
 import 'package:fashionstore_movil/core/network/api_client.dart';
-import 'package:fashionstore_movil/core/services/carrito_service.dart';
-import 'package:fashionstore_movil/core/services/catalogo_service.dart';
+import 'package:fashionstore_movil/features/ventas_pagos/services/carrito_service.dart';
+import 'package:fashionstore_movil/features/catalogo/services/catalogo_service.dart';
 import 'package:fashionstore_movil/core/session/session_manager.dart';
-import 'package:fashionstore_movil/features/carrito/carrito_screen.dart';
-import 'package:fashionstore_movil/features/carrito/carrito_store.dart';
+import 'package:fashionstore_movil/features/ventas_pagos/carrito/carrito_screen.dart';
+import 'package:fashionstore_movil/features/ventas_pagos/carrito/carrito_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;

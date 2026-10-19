@@ -1,11 +1,11 @@
 import 'dart:convert';
 
-import 'package:fashionstore_movil/core/models/catalogo_model.dart';
+import 'package:fashionstore_movil/features/catalogo/models/catalogo_model.dart';
 import 'package:fashionstore_movil/core/network/api_client.dart';
-import 'package:fashionstore_movil/core/services/catalogo_service.dart';
+import 'package:fashionstore_movil/features/catalogo/services/catalogo_service.dart';
 import 'package:fashionstore_movil/core/session/session_manager.dart';
-import 'package:fashionstore_movil/features/catalogo/catalogo_screen.dart';
-import 'package:fashionstore_movil/features/catalogo/producto_detalle_screen.dart';
+import 'package:fashionstore_movil/features/catalogo/catalogo/catalogo_screen.dart';
+import 'package:fashionstore_movil/features/catalogo/catalogo/producto_detalle_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;

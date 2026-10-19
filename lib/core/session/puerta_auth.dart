@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../services/auth_service.dart';
-import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/identidad_empresas/services/auth_service.dart';
+import '../../features/identidad_empresas/auth/presentation/screens/login_screen.dart';
 
 /// Puerta de autenticación para acciones protegidas (corrección final Ciclo 3).
 ///

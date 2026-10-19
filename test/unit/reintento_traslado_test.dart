@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:fashionstore_movil/core/network/api_client.dart';
-import 'package:fashionstore_movil/core/services/traslado_service.dart';
+import 'package:fashionstore_movil/features/reservas_traslados/services/traslado_service.dart';
 import 'package:fashionstore_movil/core/session/session_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
