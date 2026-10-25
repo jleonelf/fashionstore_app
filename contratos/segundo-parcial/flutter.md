@@ -1,24 +1,27 @@
-# Contrato Flutter cliente y SQLite
+# Contrato Flutter, SQLite y caja móvil posterior
 
-**Estado:** diseño de cliente móvil previo a implementación. Comparte comandos/resultados con [compartido.md](compartido.md), no la persistencia física de Angular.
+**Estado:** aclaración documental 0.2.1 sobre diseño móvil 0.2.0. SQLite y operaciones offline son requisitos pendientes según la inspección estática. Comparte comandos/resultados con [compartido.md](compartido.md), no la persistencia física de Angular.
 
 ## Ubicación de la implementación
 
-[paquetes-cu.md](paquetes-cu.md) fija las carpetas de CU28–CU30 y CU34 bajo `lib/features/<paquete>/`. Los servicios y modelos específicos se mantienen en el mismo paquete; `lib/core/` conserva sesión, red, SQLite y sincronización reutilizable. CU34 crea `lib/features/posventa/saldo/`; checkout lo consume sin duplicar el cálculo del saldo. CU31–CU33 y CU35–CU37 no crean pantallas administrativas móviles. Las nuevas funciones y métodos Dart usan nombres en español `camelCase`, salvo firmas exigidas por SDK o framework.
+[paquetes-cu.md](paquetes-cu.md) distingue carpetas actuales de propuestas bajo `lib/features/<paquete>/`; [equivalencias-cu.md](equivalencias-cu.md) conserva los números anteriores. Los servicios y modelos específicos permanecen en su paquete; `lib/core/` alojaría SQLite y sincronización reutilizable. CU09 prevé `lib/features/posventa/saldo/`; checkout lo consumiría sin duplicar el cálculo. CU06/CU07 posteriores exigen caja móvil de personal autorizado en `lib/features/caja_offline/` o paquete equivalente acordado. Las funciones y métodos nuevos Dart usan español `camelCase`, salvo firmas exigidas por SDK o framework.
 
 ## Alcance y almacenamiento
 
-Flutter es exclusivamente cliente: catálogo descargado, reserva propia, carrito/solicitud de compra diferida, pendientes/resultados, pago Stripe **online**, saldo consultable/utilizable online desde `lib/features/posventa/saldo/`, notificaciones FCM y probador Decart existente. No incluye roles de personal, caja, efectivo ni venta de contado offline; esta diferencia con el texto académico se registra en trazabilidad.
+La app actual atiende principalmente al cliente y consume catálogo/reservas online. El contrato global incluye catálogo descargado, reserva propia, carrito/solicitud de compra diferida, pendientes/resultados, pago Stripe **online**, saldo consultable/utilizable online, notificaciones y probador virtual. También incluye, para CU06/CU07 posteriores, personal autorizado, turno/cupos, efectivo y venta de contado offline con SQLite y sincronización. Esa capacidad no se encontró implementada; su ausencia de los ocho CU prioritarios no la excluye del alcance global.
+
+El catálogo público de una empresa se identifica mediante un enlace/contexto propuesto como `/tienda/{empresa_codigo}`; en Flutter es referencia de navegación compartible, no ruta implementada ni permiso. Conservar la empresa al pasar a registro/login y a solicitudes. Una sesión de otra empresa requiere validación explícita; no se reutiliza silenciosamente. La pantalla inicial de selección de empresas es mejora opcional posterior. Ciudades son referencias globales administradas por plataforma; móvil solo las consulta/selecciona cuando corresponda, y muestra sucursales de la empresa autorizada.
 
 SQLite tendrá tablas o estructuras equivalentes versionadas para catálogo/variantes por empresa, copia de sucursales permitidas, identidad local mínima, solicitudes y líneas, cola de operaciones, resultados/notificaciones y metadatos de sincronización. No guardar tarjeta ni clave permanente de proveedores. Cada fila privada se vincula a empresa y usuario; logout/cambio de cuenta oculta datos propios y no los sincroniza con otra identidad.
 
-La sesión privada local vale ocho horas desde último login online. Catálogo público descargado continúa visible sin esa sesión. Al reautenticar, la app recupera pendientes propios y backend revalida empresa, plan, stock, precio y vigencia. Una escritura local confirmada debe sobrevivir a cierre/reinicio normal.
+La ventana privada local vale ocho horas desde último login online; es independiente del JWT actual de 24 horas guardado por `SessionManager` y de la habilitación de caja offline. Al vencer o cerrar sesión se ocultan datos privados, pero se conservan aislados por empresa/usuario, incluidos pendientes y resultados. Catálogo público descargado continúa visible. Recuperar red o reintentar no renueva las ocho horas; al reautenticar, la app recupera pendientes propios y backend revalida empresa, plan, stock, precio y vigencia. Un token vencido impide sincronizar aunque la ventana local estuviera vigente. Una escritura local confirmada debe sobrevivir a cierre/reinicio normal.
 
 ## Reserva, compra y avisos
 
 | Acción | Comportamiento móvil |
 |---|---|
 | Crear reserva sin red | Guardar UUID, creación local, sucursal, visita y líneas; mostrar pendiente sin prometer stock. |
+| Mostrar vencimiento | Separar visita de origen: online 24 h desde creación central; offline aceptada 24 h desde creación local original; adelanto confirmado online antes de vencer fija 72 h desde ese mismo origen. Recepción y reintentos no prolongan. Mostrar rechazo por solicitud vencida o conflicto temporal durable sin prometer apartado. |
 | Crear compra sin red | Guardar solicitud y líneas; no crear intención Stripe ni reservar stock desde el teléfono. |
 | Recuperar Internet | Enviar operaciones propias con UUID estable; consultar resultado si se perdió respuesta; presentar falta de stock, precio cambiado o aceptación. |
 | Pagar | Solo online, después de apartado central y aceptación del BOB/USD mostrado. Abrir flujo Stripe existente y consultar estado final; no inferir éxito de la navegación de retorno. |
@@ -30,4 +33,4 @@ La sincronización en segundo plano depende del sistema operativo; debe existir 
 
 Nombres sugeridos Dart: `guardarSolicitudLocal`, `sincronizarPendientes`, `consultarResultado`, `ocultarDatosPrivados`, `registrarTokenNotificacion`, `abrirPagoEnLinea`. Mantener firmas obligatorias de SDK como adaptadores y no renombrar silenciosamente servicios públicos existentes.
 
-Pruebas de aceptación: reinicio sin conexión, sesión local vencida, cambio de usuario/empresa, solicitud de reserva vencida desde creación local, competencia por última unidad, precio nuevo, mismo UUID tras pérdida de respuesta, push concedido/denegado, pago exitoso/fallido/en verificación. Validar push y probador realtime final en Android físico. La app no debe declarar venta de contado móvil cumplida.
+Pruebas de aceptación: reinicio sin conexión, sesión local vencida, cambio de usuario/empresa, solicitud de reserva vencida desde creación local, competencia por última unidad, precio nuevo, mismo UUID tras pérdida de respuesta, push concedido/denegado, pago exitoso/fallido/en verificación. Validar push y probador realtime final en Android físico. La venta de contado móvil requiere pruebas propias en la presentación posterior.
