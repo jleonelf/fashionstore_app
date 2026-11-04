@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../models/reserva_model.dart';
+import '../models/sincronizacion_model.dart';
 import '../services/reserva_service.dart';
+import '../services/sincronizacion_offline_service.dart';
 import '../../../core/ui/async_view.dart';
 import '../../../core/ui/colores.dart';
 import '../../../core/ui/estado_chip.dart';
@@ -10,10 +12,11 @@ import 'bolsa_screen.dart';
 import 'bolsa_store.dart';
 import 'reserva_detalle_screen.dart';
 
-/// Listado paginado de reservas propias.
+/// Listado paginado de reservas propias (CU18) e integración con reservas offline (CU04).
 class ReservasScreen extends StatefulWidget {
   final ReservaService? servicio;
-  const ReservasScreen({super.key, this.servicio});
+  final SincronizacionOfflineService? servicioOffline;
+  const ReservasScreen({super.key, this.servicio, this.servicioOffline});
 
   @override
   State<ReservasScreen> createState() => _ReservasScreenState();
@@ -21,8 +24,12 @@ class ReservasScreen extends StatefulWidget {
 
 class _ReservasScreenState extends State<ReservasScreen> {
   late final ReservaService _srv;
+  late final SincronizacionOfflineService _offlineSrv;
+
   List<Reserva> _items = [];
+  List<OperacionSincronizacionLocal> _pendientesOffline = [];
   bool _cargando = true;
+  bool _sincronizando = false;
   String? _error;
   int _offset = 0;
   static const _limite = 20;
@@ -32,7 +39,15 @@ class _ReservasScreenState extends State<ReservasScreen> {
   void initState() {
     super.initState();
     _srv = widget.servicio ?? ReservaService();
+    _offlineSrv = widget.servicioOffline ?? SincronizacionOfflineService();
+    _offlineSrv.iniciarMonitoreoRed();
     _cargar(inicial: true);
+  }
+
+  @override
+  void dispose() {
+    _offlineSrv.detenerMonitoreoRed();
+    super.dispose();
   }
 
   Future<void> _cargar({bool inicial = false}) async {
@@ -42,6 +57,22 @@ class _ReservasScreenState extends State<ReservasScreen> {
         _error = null;
       });
     }
+
+    // Cargar cola local offline defensivamente
+    try {
+      final ops = await _offlineSrv.listarOperaciones();
+      if (mounted) {
+        setState(() {
+          _pendientesOffline = ops
+              .where((o) =>
+                  o.estadoEnvio == 'PENDIENTE_ENVIO' ||
+                  o.estadoEnvio == 'ENVIANDO' ||
+                  o.estadoEnvio == 'CONFLICTO')
+              .toList();
+        });
+      }
+    } catch (_) {}
+
     try {
       final lista = await _srv.listarMias(
         limit: _limite,
@@ -71,6 +102,35 @@ class _ReservasScreenState extends State<ReservasScreen> {
           );
         }
       });
+    }
+  }
+
+  Future<void> _sincronizarAhora() async {
+    if (_sincronizando) return;
+    setState(() => _sincronizando = true);
+    try {
+      final resultados = await _offlineSrv.sincronizarPendientes();
+      if (!mounted) return;
+      setState(() => _sincronizando = false);
+      if (resultados.isNotEmpty) {
+        final aceptadas = resultados.where((r) => r.estado == 'ACEPTADA').length;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              aceptadas > 0
+                  ? '$aceptadas reserva(s) sincronizada(s) y aceptadas centralmente.'
+                  : 'Sincronización finalizada.',
+            ),
+          ),
+        );
+      }
+      _cargar(inicial: true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _sincronizando = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al sincronizar: $e')),
+      );
     }
   }
 
@@ -127,6 +187,57 @@ class _ReservasScreenState extends State<ReservasScreen> {
             },
           ),
         ),
+        if (_pendientesOffline.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+            child: Card(
+              color: Colors.amber.shade50,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Colors.amber.shade300),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(
+                  children: [
+                    Icon(Icons.cloud_upload_outlined, color: Colors.amber.shade900),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${_pendientesOffline.length} solicitud(es) offline pendiente(s)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Colors.amber.shade900,
+                            ),
+                          ),
+                          Text(
+                            'Se sincronizarán al estar conectado.',
+                            style: TextStyle(fontSize: 12, color: Colors.amber.shade800),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                      onPressed: _sincronizando ? null : _sincronizarAhora,
+                      child: _sincronizando
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Sincronizar', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         Expanded(child: _lista()),
       ],
     );
@@ -176,6 +287,21 @@ class _ReservasScreenState extends State<ReservasScreen> {
                       style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                   ),
+                  if (r.esOrigenOffline) ...[
+                    Container(
+                      margin: const EdgeInsets.only(right: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        border: Border.all(color: Colors.blue.shade200),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Offline CU04',
+                        style: TextStyle(fontSize: 10, color: Colors.blue.shade900),
+                      ),
+                    ),
+                  ],
                   EstadoChip.reserva(r.estadoLegible, r.estado),
                 ],
               ),

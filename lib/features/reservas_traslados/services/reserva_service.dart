@@ -3,19 +3,19 @@ import 'package:uuid/uuid.dart';
 import '../models/reserva_model.dart';
 import '../../../core/network/api_client.dart';
 
-/// Reservas del cliente (contrato real).
+/// Reservas del cliente (contrato real CU18 y adaptadores).
 ///
 /// - POST /reservas (con Idempotency-Key)
 /// - GET /reservas (paginado, propias)
 /// - GET /reservas/{id} y /reservas/codigo/{codigo}
-/// - PATCH /reservas/{id}/cancelar
+/// - PATCH /reservas/{id}/cancelar (con Idempotency-Key y {revision})
 class ReservaService {
   final ApiClient _api;
   ReservaService({ApiClient? api}) : _api = api ?? ApiClient();
 
   static String nuevaClaveIdempotencia() => const Uuid().v4();
 
-  /// Crea la reserva. [clave] debe mantenerse estable durante el reintento
+  /// Crea la reserva online. [clave] debe mantenerse estable durante el reintento
   /// de la misma bolsa (la genera la pantalla una vez por confirmación).
   Future<Reserva> crear({
     required String sucursalDestinoId,
@@ -63,9 +63,15 @@ class ReservaService {
     );
   }
 
-  Future<Reserva> cancelar(String id) {
+  /// Cancela la reserva con clave de idempotencia y revisión concurrente (CU18).
+  Future<Reserva> cancelar(String id, {int revision = 1, String? claveIdempotencia}) {
+    final clave = claveIdempotencia ?? nuevaClaveIdempotencia();
     return _api.patch<Reserva>(
       '/reservas/$id/cancelar',
+      idempotencyKey: clave,
+      cuerpo: {
+        'revision': revision,
+      },
       convertir: (j) => Reserva.fromJson((j as Map).cast<String, dynamic>()),
     );
   }

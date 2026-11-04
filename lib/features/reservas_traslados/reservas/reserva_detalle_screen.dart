@@ -15,7 +15,7 @@ import '../../../core/ui/formato.dart';
 import 'claves_reintento.dart';
 import 'origen_helper.dart';
 
-/// Detalle: código, vigencia, estados, cancelación permitida,
+/// Detalle: código, vigencia, estados, cancelación con revisión concurrente (CU18),
 /// traslados y reintento de línea rechazada con otro origen.
 class ReservaDetalleScreen extends StatefulWidget {
   final String reservaId;
@@ -67,8 +67,6 @@ class _ReservaDetalleScreenState extends State<ReservaDetalleScreen> {
     });
     try {
       final r = await _reservas.obtener(widget.reservaId);
-      // El seguimiento es de sólo lectura: se consulta aunque la reserva
-      // haya terminado (traslado en tránsito tras cancelación/vencimiento).
       final quiereVer = AccionesReserva.puedeVerTraslados(
         r.estado,
         tieneTraslados: r.traslados.isNotEmpty,
@@ -127,18 +125,30 @@ class _ReservaDetalleScreenState extends State<ReservaDetalleScreen> {
     if (ok != true) return;
     setState(() => _cancelando = true);
     try {
-      final actual = await _reservas.cancelar(r.id);
+      final actual = await _reservas.cancelar(r.id, revision: r.revision);
       if (!mounted) return;
       setState(() {
         _reserva = actual;
         _cancelando = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reserva cancelada.')),
+        const SnackBar(content: Text('Reserva cancelada exitosamente.')),
       );
     } catch (e) {
       if (!mounted) return;
       setState(() => _cancelando = false);
+      if (e is ApiException && e.statusCode == 409) {
+        // Conflicto de revisión concurrente o estado modificado
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'La reserva cambió de estado o revisión. Recargando información actualizada…',
+            ),
+          ),
+        );
+        await _cargar();
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString())),
       );
@@ -148,7 +158,6 @@ class _ReservaDetalleScreenState extends State<ReservaDetalleScreen> {
   Future<void> _reintentar(DetalleReserva linea) async {
     final r = _reserva;
     if (r == null) return;
-    // Cantidad pendiente de la línea rechazada (sin cambiar variante).
     final cantidadPendiente = linea.cantidadPendienteTraslado > 0
         ? linea.cantidadPendienteTraslado
         : linea.cantidadSolicitada;
@@ -170,7 +179,7 @@ class _ReservaDetalleScreenState extends State<ReservaDetalleScreen> {
       }
       return;
     }
-    // Origen rechazado anteriormente (identificable desde el seguimiento).
+
     String? origenRechazado;
     final seg = _trasladosLista;
     if (seg != null) {
@@ -190,8 +199,7 @@ class _ReservaDetalleScreenState extends State<ReservaDetalleScreen> {
         detalleReservaId: linea.id,
       );
     }
-    // Solo orígenes distintos al destino con stock suficiente; se excluye
-    // el origen rechazado cuando sigue siendo identificable.
+
     final opciones = origenesValidosParaLinea(
       disponibilidad: disp,
       sucursales: sucs,
@@ -200,8 +208,8 @@ class _ReservaDetalleScreenState extends State<ReservaDetalleScreen> {
       excluirOrigenId: origenRechazado,
     );
     String? elegido;
+    if (!mounted) return;
     final ok = await showDialog<bool>(
-      // ignore: use_build_context_synchronously
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
@@ -272,8 +280,6 @@ class _ReservaDetalleScreenState extends State<ReservaDetalleScreen> {
     if (ok != true || elegido == null) return;
     setState(() => _reintentoLineaId = linea.id);
     try {
-      // Clave estable por línea+origen; si el usuario cambia el origen
-      // después de un conflicto de payload se genera una nueva.
       final clave = _clavesReintento.clavePara(
         lineaId: linea.id,
         origenId: elegido!,
@@ -292,8 +298,6 @@ class _ReservaDetalleScreenState extends State<ReservaDetalleScreen> {
       _cargar();
     } catch (e) {
       if (!mounted) return;
-      // 409 por reutilizar la clave con otro payload: descartarla para que
-      // el siguiente intento (mismo u otro origen) use una clave nueva.
       if (esConflictoIdempotencia(e)) {
         _clavesReintento.invalidarPorConflicto(linea.id);
       }
@@ -350,15 +354,26 @@ class _ReservaDetalleScreenState extends State<ReservaDetalleScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Muestra este código al llegar a tienda.',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      r.estado == 'VENCIDA'
+                          ? 'Esta reserva expiró por superar el plazo de visita (CU26).'
+                          : 'Muestra este código al llegar a tienda.',
+                      style: TextStyle(
+                        color: r.estado == 'VENCIDA' ? Colors.red.shade700 : Colors.grey.shade600,
+                        fontWeight: r.estado == 'VENCIDA' ? FontWeight.w600 : FontWeight.normal,
+                      ),
                     ),
                     const Divider(height: 20),
+                    _fila('Revisión', 'v${r.revision}'),
                     _fila('Vigencia', textoVigencia(r.venceEn)),
                     _fila('Prendas', '${r.totalPrendas}'),
+                    if (r.origenPlazoEn != null)
+                      _fila('Origen del plazo', formatoFecha(r.origenPlazoEn)),
                     if (r.fechaVisita != null)
-                      _fila(
-                          'Visita prevista', formatoFechaCorta(r.fechaVisita)),
+                      _fila('Visita prevista', formatoFechaCorta(r.fechaVisita)),
+                    if (r.tieneAdelanto)
+                      _fila('Adelanto confirmado', 'Bs ${r.adelantoMonto} (72 h)'),
+                    if (r.esOrigenOffline)
+                      _fila('Origen', 'Reserva offline aceptada (CU04)'),
                     if ((r.observacion ?? '').isNotEmpty)
                       _fila('Comentario', r.observacion!),
                   ],
@@ -373,11 +388,11 @@ class _ReservaDetalleScreenState extends State<ReservaDetalleScreen> {
               Card(
                 child: ListTile(
                   title: Text(
-                    'Cantidad: ${d.cantidadSolicitada}',
+                    'Solicitadas: ${d.cantidadSolicitada} · Apartadas: ${d.cantidadReservada}',
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   subtitle: Text(
-                    d.estadoLegible,
+                    '${d.estadoLegible}${d.cantidadPendienteTraslado > 0 ? " · Pendiente traslado: ${d.cantidadPendienteTraslado}" : ""}${d.cantidadVendida > 0 ? " · Compradas: ${d.cantidadVendida}" : ""}${d.cantidadLiberada > 0 ? " · Liberadas: ${d.cantidadLiberada}" : ""}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -486,7 +501,7 @@ class _ReservaDetalleScreenState extends State<ReservaDetalleScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120,
+            width: 130,
             child: Text(titulo, style: TextStyle(color: Colors.grey.shade600)),
           ),
           Expanded(

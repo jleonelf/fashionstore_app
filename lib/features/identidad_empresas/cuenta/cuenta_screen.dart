@@ -1,17 +1,30 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/config/api_config.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/session/session_manager.dart';
+import '../../../core/ui/colores.dart';
+import '../../ventas_pagos/caja/caja_offline_screen.dart';
+import '../../ventas_pagos/services/caja_service.dart';
+import '../models/suscripcion_model.dart';
 import '../models/usuario_model.dart';
 import '../services/auth_service.dart';
+import '../services/suscripcion_service.dart';
 import '../auth/presentation/screens/login_screen.dart';
 
-/// Perfil + ayuda de conexión + cierre de sesión.
+/// Perfil + Suscripción y Capacidades + Acceso a Caja Móvil + Cierre de sesión.
 /// En modo invitado muestra acceso a login/registro sin bloquear el catálogo.
 class CuentaScreen extends StatefulWidget {
   final VoidCallback onSesionCerrada;
   final VoidCallback? onSesionIniciada;
-  const CuentaScreen(
-      {super.key, required this.onSesionCerrada, this.onSesionIniciada});
+  final SuscripcionService? servicioSuscripcion;
+
+  const CuentaScreen({
+    super.key,
+    required this.onSesionCerrada,
+    this.onSesionIniciada,
+    this.servicioSuscripcion,
+  });
 
   @override
   State<CuentaScreen> createState() => _CuentaScreenState();
@@ -19,20 +32,33 @@ class CuentaScreen extends StatefulWidget {
 
 class _CuentaScreenState extends State<CuentaScreen> {
   final _auth = AuthService();
+  late final SuscripcionService _suscripcionSrv;
   ClientePerfilModel? _usuario;
+  SuscripcionEmpresaModel? _suscripcion;
   bool _cargando = true;
 
   @override
   void initState() {
     super.initState();
+    _suscripcionSrv = widget.servicioSuscripcion ?? SuscripcionService();
     _cargar();
   }
 
   Future<void> _cargar() async {
     final s = await _auth.sesionActual();
+    SuscripcionEmpresaModel? plan;
+    if (s?.usuario != null) {
+      try {
+        plan = await _suscripcionSrv.consultarMiPlan(empresaId: s?.usuario.empresaId);
+      } catch (_) {
+        // En caso de usuario sin empresa o sin red, se mantiene defensivo
+      }
+    }
+
     if (mounted) {
       setState(() {
         _usuario = s?.usuario;
+        _suscripcion = plan;
         _cargando = false;
       });
     }
@@ -101,8 +127,6 @@ class _CuentaScreenState extends State<CuentaScreen> {
                     ),
                   ),
                 );
-                // LoginScreen dentro de Home ya gestiona el retorno; aquí
-                // solo refrescamos por si el flujo devolvió directo.
                 if (ok == true && context.mounted) {
                   await _cargar();
                   widget.onSesionIniciada?.call();
@@ -135,11 +159,20 @@ class _CuentaScreenState extends State<CuentaScreen> {
         ),
       );
     }
+
+    final rol = _usuario?.rol.toUpperCase() ?? 'CLIENTE';
+    final esPersonal = rol == 'CAJERO' ||
+        rol == 'ADMIN' ||
+        rol == 'ADMINISTRADOR' ||
+        rol == 'ENCARGADO' ||
+        rol == 'GERENTE';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Perfil de Usuario
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -173,6 +206,25 @@ class _CuentaScreenState extends State<CuentaScreen> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(color: Colors.grey.shade600),
                         ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: esPersonal ? Colors.deepPurple.shade50 : Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: esPersonal ? Colors.deepPurple.shade200 : Colors.blue.shade200,
+                            ),
+                          ),
+                          child: Text(
+                            'Rol: $rol',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: esPersonal ? Colors.deepPurple.shade900 : Colors.blue.shade900,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -181,6 +233,129 @@ class _CuentaScreenState extends State<CuentaScreen> {
             ),
           ),
           const SizedBox(height: 10),
+
+          // Capacidades y Plan de la Empresa
+          if (_suscripcion != null) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.workspace_premium, color: ColoresFS.brassStrong),
+                        const SizedBox(width: 8),
+                        Text(
+                          _suscripcion!.planNombre,
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.green.shade300),
+                          ),
+                          child: Text(
+                            _suscripcion!.estadoEfectivo,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green.shade900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Límite: ${_suscripcion!.sucursalesActivas} / ${_suscripcion!.limiteSucursales} sucursal(es) activas',
+                      style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text('Capacidades habilitadas:',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        for (final cap in _suscripcion!.capacidades)
+                          Chip(
+                            label: Text(cap, style: const TextStyle(fontSize: 10)),
+                            padding: EdgeInsets.zero,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+
+          // Módulo de Caja Móvil para Personal Autorizado
+          if (esPersonal) ...[
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Colors.deepPurple.shade200),
+              ),
+              color: Colors.deepPurple.shade50.withValues(alpha: 0.5),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.point_of_sale, color: Colors.deepPurple),
+                        SizedBox(width: 8),
+                        Text(
+                          'Caja Móvil',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Habilita turnos con cupos, registra ventas en efectivo sin red con comprobante inmediato y sincroniza transacciones.',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepPurple,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () {
+                          final sessionMgr = SessionManager();
+                          final api = ApiClient(sesiones: sessionMgr);
+                          final cajaSrv = CajaService(api: api, sesiones: sessionMgr);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CajaOfflineScreen(servicioCaja: cajaSrv),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.store),
+                        label: const Text('Abrir Módulo de Caja'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+
+          // Tarjeta de Conexión
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),

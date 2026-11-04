@@ -6,7 +6,10 @@ import '../../organizacion/models/organizacion_model.dart';
 import '../models/reserva_model.dart';
 import '../../catalogo/services/catalogo_service.dart';
 import '../services/reserva_service.dart';
+import '../services/sincronizacion_offline_service.dart';
 import '../../organizacion/services/sucursal_service.dart';
+import '../../../core/network/api_exception.dart';
+import '../../../core/session/session_manager.dart';
 import '../../../core/ui/async_view.dart';
 import '../../../core/ui/formato.dart';
 import 'bolsa_store.dart';
@@ -57,6 +60,7 @@ class BolsaScreen extends StatefulWidget {
   final SucursalService? servicioSucursales;
   final ReservaService? servicioReservas;
   final CatalogoService? servicioCatalogo;
+  final SincronizacionOfflineService? servicioOffline;
 
   const BolsaScreen({
     super.key,
@@ -64,6 +68,7 @@ class BolsaScreen extends StatefulWidget {
     this.servicioSucursales,
     this.servicioReservas,
     this.servicioCatalogo,
+    this.servicioOffline,
   });
 
   @override
@@ -74,6 +79,7 @@ class _BolsaScreenState extends State<BolsaScreen> {
   late final SucursalService _sucursalesSrv;
   late final ReservaService _reservasSrv;
   late final CatalogoService _catalogoSrv;
+  late final SincronizacionOfflineService _offlineSrv;
 
   List<SucursalModel> _sucursales = [];
   bool _cargandoSuc = true;
@@ -102,6 +108,7 @@ class _BolsaScreenState extends State<BolsaScreen> {
     _sucursalesSrv = widget.servicioSucursales ?? SucursalService();
     _reservasSrv = widget.servicioReservas ?? ReservaService();
     _catalogoSrv = widget.servicioCatalogo ?? CatalogoService();
+    _offlineSrv = widget.servicioOffline ?? SincronizacionOfflineService();
     _cargarSucursales();
   }
 
@@ -532,6 +539,51 @@ class _BolsaScreenState extends State<BolsaScreen> {
     }
   }
 
+  Future<void> _guardarOffline() async {
+    final bolsa = BolsaStore.instancia;
+    if (bolsa.vacia || _destinoId == null) return;
+    setState(() => _enviando = true);
+    try {
+      final sesion = await SessionManager().leerValida();
+      if (sesion == null ||
+          sesion.usuario.empresaId == null ||
+          sesion.usuario.empresaId!.isEmpty) {
+        throw const ApiException(
+          statusCode: 401,
+          mensaje:
+              'Inicia sesión con una cuenta activa antes de guardar reservas offline.',
+        );
+      }
+      final op = await _offlineSrv.registrarReservaOffline(
+        empresaId: sesion.usuario.empresaId!,
+        sucursalId: _destinoId!,
+        visitaEn: _fechaVisita ?? DateTime.now().add(const Duration(days: 1)),
+        items: bolsa.items,
+      );
+      bolsa.limpiar();
+      if (!mounted) return;
+      setState(() {
+        _enviando = false;
+        _errorEnvio = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Solicitud offline ${op.operacionId.substring(0, 8)} guardada (PENDIENTE_ENVIO). Se sincronizará automáticamente.',
+          ),
+          backgroundColor: Colors.blue.shade800,
+        ),
+      );
+      widget.onReservaCreada?.call();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _enviando = false;
+        _errorEnvio = e.toString();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -718,6 +770,14 @@ class _BolsaScreenState extends State<BolsaScreen> {
                             icon: const Icon(Icons.refresh),
                             label: const Text(
                               'Reintentar con la misma solicitud',
+                            ),
+                          ),
+                        if (_errorEnvio != null && !_enviando)
+                          TextButton.icon(
+                            onPressed: _guardarOffline,
+                            icon: const Icon(Icons.cloud_off_outlined),
+                            label: const Text(
+                              'Guardar solicitud offline (CU04)',
                             ),
                           ),
                         Text(

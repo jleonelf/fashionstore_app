@@ -11,10 +11,12 @@ import '../models/carrito_model.dart';
 import '../models/checkout_model.dart';
 import '../models/entrega_model.dart';
 import '../../organizacion/models/organizacion_model.dart';
+import '../../organizacion/models/tasa_cambio_model.dart';
+import '../../organizacion/services/sucursal_service.dart';
+import '../../organizacion/services/tasa_cambio_service.dart';
 import '../services/carrito_service.dart';
 import '../services/checkout_service.dart';
 import '../services/entrega_service.dart';
-import '../../organizacion/services/sucursal_service.dart';
 import '../../../core/ui/async_view.dart';
 import '../../../core/ui/colores.dart';
 import '../../../core/ui/componentes_ciclo3.dart';
@@ -26,12 +28,14 @@ class CheckoutScreen extends StatefulWidget {
   final CheckoutService? servicioCheckout;
   final SucursalService? servicioSucursal;
   final EntregaService? servicioEntrega;
+  final TasaCambioService? servicioTasa;
   const CheckoutScreen({
     super.key,
     this.servicioCarrito,
     this.servicioCheckout,
     this.servicioSucursal,
     this.servicioEntrega,
+    this.servicioTasa,
   });
 
   @override
@@ -43,10 +47,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   late final CheckoutService _checkoutSrv;
   late final SucursalService _sucursalSrv;
   late final EntregaService _entregaSrv;
+  late final TasaCambioService _tasaSrv;
 
   bool _cargando = true;
   String? _error;
   CarritoCompra? _carrito;
+  TasaCambioModel? _tasaVigente;
   List<SucursalModel> _sucursales = [];
   Set<String> _cubren = {};
   String? _sucursalSel;
@@ -67,6 +73,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _checkoutSrv = widget.servicioCheckout ?? CheckoutService();
     _sucursalSrv = widget.servicioSucursal ?? SucursalService();
     _entregaSrv = widget.servicioEntrega ?? EntregaService();
+    _tasaSrv = widget.servicioTasa ?? TasaCambioService();
     _cargar();
   }
 
@@ -84,6 +91,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     try {
       final carrito = await _carritoSrv.obtenerOCrear();
       final sucursales = await _sucursalSrv.listar();
+      TasaCambioModel? tasa;
+      try {
+        tasa = await _tasaSrv.obtenerTasaVigente();
+      } catch (_) {}
       Set<String> cubren = {};
       try {
         final cob = await _carritoSrv.cobertura();
@@ -94,6 +105,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _carrito = carrito;
         _sucursales = sucursales.where((s) => s.activa).toList();
         _cubren = cubren;
+        _tasaVigente = tasa;
         _cargando = false;
         if (_sucursalSel == null) {
           final primera = _sucursales.where((s) => cubren.contains(s.id));
@@ -479,6 +491,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               etiqueta: 'Costo de entrega', valor: _cotizacion!.costoEntrega),
         const Divider(),
         FilaTotal(etiqueta: 'Total a pagar', valor: c.total, destacado: true),
+        if (_tasaVigente != null && c.total > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
+              children: [
+                const Icon(Icons.currency_exchange,
+                    size: 14, color: ColoresFS.brassStrong),
+                const SizedBox(width: 4),
+                Text(
+                  '≈ USD ${(c.total / _tasaVigente!.tasaBobPorUsd).toStringAsFixed(2)} (Tasa oficial: ${_tasaVigente!.tasaBobPorUsd.toStringAsFixed(2)} BOB/USD)',
+                  style: const TextStyle(
+                    color: ColoresFS.brassStrong,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
         const SizedBox(height: 4),
         const Text(
           'El total final lo confirma el backend al pagar. Solo se usa Stripe en modo prueba.',
