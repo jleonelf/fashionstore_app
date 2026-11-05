@@ -11,6 +11,7 @@ import 'package:uuid/uuid.dart';
 import '../models/pago_model.dart';
 import '../services/entrega_service.dart';
 import '../services/pago_service.dart';
+import '../../../core/session/dispositivo_helper.dart';
 import '../../../core/ui/async_view.dart';
 import '../../../core/ui/colores.dart';
 import '../../../core/ui/componentes_ciclo3.dart';
@@ -188,6 +189,96 @@ class _PagoScreenState extends State<PagoScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _pagarConOrdenCU22() async {
+    if (_pagando || _intencionEnCurso) return;
+    setState(() {
+      _pagando = true;
+      _error = null;
+    });
+    try {
+      _intencionEnCurso = true;
+      final orden = await _pagos.crearOrdenPago(
+        contexto: 'VENTA',
+        recursoId: widget.ventaId,
+        consentimientoCobroPosterior: true,
+      );
+      _intencionEnCurso = false;
+      if (!mounted) return;
+
+      final secreto = orden['client_secret'] as String?;
+      final ordenId = (orden['orden_pago_id'] ?? orden['id'])?.toString();
+
+      if (secreto != null && secreto.isNotEmpty) {
+        await _hoja.inicializarHoja(clientSecret: secreto);
+        final res = await _hoja.presentarHoja();
+        if (!mounted) return;
+        if (res == ResultadoHojaPago.cancelado) {
+          setState(() => _pagando = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Operación cancelada. Puedes intentar de nuevo.'),
+            ),
+          );
+          return;
+        }
+        if (ordenId != null && ordenId.isNotEmpty) {
+          try {
+            await _pagos.continuarAccionOrden(ordenId: ordenId);
+          } catch (_) {}
+        }
+      }
+
+      if (ordenId != null && ordenId.isNotEmpty) {
+        await _pagos.consultarOrdenPago(ordenId);
+      }
+
+      setState(() => _consultando = true);
+      _iniciarPolling();
+      await _cargarEstado();
+      if (mounted) setState(() => _consultando = false);
+    } catch (e) {
+      _intencionEnCurso = false;
+      if (!mounted) return;
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _pagando = false);
+    }
+  }
+
+  Future<void> _prepararMetodoPago() async {
+    if (_pagando) return;
+    setState(() {
+      _pagando = true;
+      _error = null;
+    });
+    try {
+      final dispId = await DispositivoHelper.obtenerDispositivoId();
+      final prep = await _pagos.prepararMetodoSetupIntent(huellaDispositivo: dispId);
+      final secreto = prep['client_secret'] as String?;
+      final prepId = (prep['preparacion_pago_id'] ?? prep['id'])?.toString();
+
+      if (secreto != null && secreto.isNotEmpty) {
+        await _hoja.inicializarHoja(clientSecret: secreto);
+        final res = await _hoja.presentarHoja();
+        if (!mounted) return;
+        if (res == ResultadoHojaPago.completado && prepId != null) {
+          await _pagos.consultarMetodoPreparado(prepId);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Método de pago vinculado con éxito (SetupIntent CU22).'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _pagando = false);
+    }
+  }
+
   Future<void> _verPedido() async {
     try {
       final lista = await _entregas.misPedidos(limit: 50, offset: 0);
@@ -308,6 +399,7 @@ class _PagoScreenState extends State<PagoScreen> with WidgetsBindingObserver {
               ),
             ),
           ElevatedButton.icon(
+            key: const Key('btn_pagar_stripe'),
             onPressed:
                 _pagando ? null : () => _pagar(esReintento: _intencion != null),
             icon: _pagando
@@ -320,6 +412,20 @@ class _PagoScreenState extends State<PagoScreen> with WidgetsBindingObserver {
             label: Text(_pagando
                 ? 'Procesando…'
                 : (_intencion != null ? 'Reintentar pago' : 'Pagar ahora')),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            key: const Key('btn_pagar_orden_cu22'),
+            onPressed: _pagando ? null : _pagarConOrdenCU22,
+            icon: const Icon(Icons.credit_score_outlined),
+            label: const Text('Pagar con Orden Conectada (CU22)'),
+          ),
+          const SizedBox(height: 6),
+          TextButton.icon(
+            key: const Key('btn_preparar_metodo_cu22'),
+            onPressed: _pagando ? null : _prepararMetodoPago,
+            icon: const Icon(Icons.add_card_outlined),
+            label: const Text('Vincular tarjeta para compras futuras (SetupIntent)'),
           ),
           TextButton(
             onPressed: _pagando ? null : () => _cargarEstado(),

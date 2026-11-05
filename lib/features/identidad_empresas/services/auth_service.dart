@@ -1,4 +1,5 @@
 import '../models/usuario_model.dart';
+import 'notificacion_movil_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/session/session_manager.dart';
@@ -75,6 +76,8 @@ class AuthService {
         token: respuesta.accessToken,
         usuario: respuesta.usuario,
       );
+      // Vincula dispositivo móvil ante el backend (E2 Avisos)
+      NotificacionMovilService(api: _api).registrarDispositivo().catchError((_) => null as dynamic);
       return respuesta;
     } on ApiException catch (e) {
       if (e.statusCode == 401) {
@@ -87,7 +90,10 @@ class AuthService {
     }
   }
 
-  Future<void> cerrarSesion() => _sesiones.limpiar();
+  Future<void> cerrarSesion() async {
+    await NotificacionMovilService(api: _api).revocarDispositivo().catchError((_) => null);
+    await _sesiones.limpiar();
+  }
 
   Future<String?> obtenerToken() async {
     final s = await _sesiones.leerValida();

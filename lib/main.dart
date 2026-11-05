@@ -9,6 +9,7 @@ import 'core/session/sesion_expirada.dart';
 import 'core/ui/tema.dart';
 import 'features/identidad_empresas/auth/presentation/screens/splash_screen.dart';
 import 'features/experiencia_cliente/home/home_screen.dart';
+import 'features/posventa/posventa_screen.dart';
 
 /// Clave global del ScaffoldMessenger: permite mostrar el aviso de sesión
 /// vencida sin depender de un BuildContext que pueda estar desmontado.
@@ -104,6 +105,9 @@ class _FashionStoreAppState extends State<FashionStoreApp> {
               onSesionCerrada: () => _irA(false),
               onSesionIniciada: _sesionIniciada,
             ),
+      routes: {
+        '/posventa': (_) => const PosventaScreen(),
+      },
     );
   }
 }

@@ -45,4 +45,82 @@ class PagoService {
           EstadoPagoVenta.fromJson((j as Map).cast<String, dynamic>()),
     );
   }
+
+  /// Prepara método con SetupIntent para cobros off-session (CU22).
+  Future<Map<String, dynamic>> prepararMetodoSetupIntent({
+    String? huellaDispositivo,
+    String? claveIdempotencia,
+  }) {
+    return _api.post<Map<String, dynamic>>(
+      '/pagos/stripe/metodos/preparar',
+      cuerpo: {
+        if (huellaDispositivo != null && huellaDispositivo.isNotEmpty)
+          'huella_dispositivo': huellaDispositivo,
+      },
+      idempotencyKey: claveIdempotencia ?? const Uuid().v4(),
+      convertir: (j) => (j as Map).cast<String, dynamic>(),
+    );
+  }
+
+  /// Crea orden de pago off-session o conectada Stripe (CU22).
+  Future<Map<String, dynamic>> crearOrdenPago({
+    String? contexto,
+    String? recursoId,
+    String? ventaId,
+    String? pedidoCompraId,
+    String? metodoPreparadoId,
+    int? ofertaRevision,
+    bool consentimientoCobroPosterior = false,
+    double? montoBob,
+    String? claveIdempotencia,
+  }) {
+    final ctx = contexto ?? (ventaId != null ? 'VENTA' : (pedidoCompraId != null ? 'PEDIDO' : 'VENTA'));
+    final recId = recursoId ?? ventaId ?? pedidoCompraId ?? '';
+    return _api.post<Map<String, dynamic>>(
+      '/pagos/stripe/ordenes',
+      cuerpo: {
+        'contexto': ctx,
+        'recurso_id': recId,
+        'oferta_revision': ofertaRevision ?? 1,
+        if (metodoPreparadoId != null && metodoPreparadoId.isNotEmpty)
+          'metodo_preparado_id': metodoPreparadoId,
+        'consentimiento_cobro_posterior': consentimientoCobroPosterior,
+      },
+      idempotencyKey: claveIdempotencia ?? const Uuid().v4(),
+      convertir: (j) => (j as Map).cast<String, dynamic>(),
+    );
+  }
+
+  /// Consulta estado de una orden de pago (CU22).
+  Future<Map<String, dynamic>> consultarOrdenPago(String ordenId) {
+    return _api.get<Map<String, dynamic>>(
+      '/pagos/stripe/ordenes/$ordenId',
+      convertir: (j) => (j as Map).cast<String, dynamic>(),
+    );
+  }
+
+  /// Continúa una orden de pago tras confirmación de acción 3DS (CU22).
+  Future<Map<String, dynamic>> continuarAccionOrden({
+    required String ordenId,
+    String? paymentIntentId,
+    String? claveIdempotencia,
+  }) {
+    return _api.post<Map<String, dynamic>>(
+      '/pagos/stripe/ordenes/$ordenId/continuar-accion',
+      cuerpo: {
+        if (paymentIntentId != null && paymentIntentId.isNotEmpty)
+          'payment_intent_id': paymentIntentId,
+      },
+      idempotencyKey: claveIdempotencia ?? const Uuid().v4(),
+      convertir: (j) => (j as Map).cast<String, dynamic>(),
+    );
+  }
+
+  /// Consulta un método preparado previamente online (CU22).
+  Future<Map<String, dynamic>> consultarMetodoPreparado(String metodoId) {
+    return _api.get<Map<String, dynamic>>(
+      '/pagos/stripe/metodos/$metodoId',
+      convertir: (j) => (j as Map).cast<String, dynamic>(),
+    );
+  }
 }

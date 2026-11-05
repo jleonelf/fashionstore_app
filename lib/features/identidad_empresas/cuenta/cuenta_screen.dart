@@ -6,6 +6,7 @@ import '../../../core/session/session_manager.dart';
 import '../../../core/ui/colores.dart';
 import '../../ventas_pagos/caja/caja_offline_screen.dart';
 import '../../ventas_pagos/services/caja_service.dart';
+import '../../posventa/posventa_screen.dart';
 import '../models/suscripcion_model.dart';
 import '../models/usuario_model.dart';
 import '../services/auth_service.dart';
@@ -136,6 +137,31 @@ class _CuentaScreenState extends State<CuentaScreen> {
               },
               icon: const Icon(Icons.login_outlined),
               label: const Text('Iniciar sesión'),
+            ),
+            const SizedBox(height: 10),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.assignment_return_outlined, color: ColoresFS.ink),
+                title: const Text('Posventa y Devoluciones',
+                    style: TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: const Text('Inicia sesión para consultar tus devoluciones, cambios y saldo a favor.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () async {
+                  final ok = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => Scaffold(
+                        appBar: AppBar(title: const Text('Inicia sesión')),
+                        body: LoginScreen(onLoginOk: () {}),
+                      ),
+                    ),
+                  );
+                  if (ok == true && context.mounted) {
+                    await _cargar();
+                    widget.onSesionIniciada?.call();
+                  }
+                },
+              ),
             ),
             const SizedBox(height: 10),
             Card(
@@ -296,6 +322,40 @@ class _CuentaScreenState extends State<CuentaScreen> {
             ),
             const SizedBox(height: 10),
           ],
+
+          // Acceso a Posventa y Garantías (CU08, CU09, CU20, CU27)
+          Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: ColoresFS.ink.withValues(alpha: 0.2)),
+            ),
+            child: ListTile(
+              key: const Key('btn_posventa_garantias'),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              leading: CircleAvatar(
+                backgroundColor: ColoresFS.ink.withValues(alpha: 0.08),
+                child: const Icon(Icons.assignment_return_outlined, color: ColoresFS.ink),
+              ),
+              title: const Text(
+                'Posventa y Garantías',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              ),
+              subtitle: const Text(
+                'Mis devoluciones, cambios, saldo a favor y reembolsos (CU08, CU09, CU20, CU27).',
+                style: TextStyle(fontSize: 13),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const PosventaScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
 
           // Módulo de Caja Móvil para Personal Autorizado
           if (esPersonal) ...[

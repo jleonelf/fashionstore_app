@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 
 import '../../identidad_empresas/services/auth_service.dart';
+import '../../identidad_empresas/services/notificacion_movil_service.dart';
 import '../../../core/ui/async_view.dart';
 import '../../../core/ui/colores.dart';
 import '../../identidad_empresas/auth/presentation/screens/login_screen.dart';
@@ -46,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _tieneSesion = ok);
     if (ok) {
       CarritoStore.instancia.cargar();
+      NotificacionMovilService().registrarDispositivo().catchError((_) => null as dynamic);
     }
   }
 

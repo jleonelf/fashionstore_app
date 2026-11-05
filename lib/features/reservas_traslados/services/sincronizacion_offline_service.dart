@@ -225,6 +225,72 @@ class SincronizacionOfflineService {
     return op;
   }
 
+  /// Encola una operación de compra offline (CU05 v3) en SQLite con consentimiento exacto y autorización de cobro.
+  Future<OperacionSincronizacionLocal> encolarCompraOffline({
+    required String sucursalId,
+    required List<Map<String, dynamic>> lineas,
+    String modalidad = 'RECOJO',
+    String? direccion,
+    int? anilloDestino,
+    Map<String, dynamic>? autorizacionCobro,
+    String? empresaId,
+    String? usuarioId,
+    String? dispositivoId,
+  }) async {
+    final sesion = await _sesiones.leerValida();
+    final empId = (sesion?.usuario.empresaId != null && sesion!.usuario.empresaId!.isNotEmpty)
+        ? sesion.usuario.empresaId!
+        : (empresaId ?? '');
+    final usrId = usuarioId ?? sesion?.usuario.usuarioId ?? '';
+    final dispId = dispositivoId ?? await DispositivoHelper.obtenerDispositivoId();
+
+    if (empId.isEmpty || usrId.isEmpty) {
+      throw StateError('No hay sesión válida para encolar compra offline');
+    }
+
+    final ref = await _storage.obtenerReferenciaHorariaValida(
+      empresaId: empId,
+      usuarioId: usrId,
+    );
+    if (ref == null) {
+      throw StateError('No hay referencia horaria válida (8h) para operar offline');
+    }
+
+    final secuencia = await _storage.obtenerSiguienteSecuencia(
+      dispositivoId: dispId,
+      usuarioId: usrId,
+    );
+
+    final operacionId = const Uuid().v4();
+    final creadaLocalEn = BoliviaTime.formatIso8601(BoliviaTime.now());
+
+    final datosJson = jsonEncode({
+      '_tipo_operacion': 'SOLICITAR_COMPRA',
+      'sucursal_id': sucursalId,
+      'modalidad': modalidad,
+      if (direccion != null) 'direccion': direccion,
+      if (anilloDestino != null) 'anillo_destino': anilloDestino,
+      'lineas': lineas,
+      if (autorizacionCobro != null) 'autorizacion_cobro': autorizacionCobro,
+    });
+
+    final op = OperacionSincronizacionLocal(
+      operacionId: operacionId,
+      empresaId: empId,
+      usuarioId: usrId,
+      dispositivoId: dispId,
+      secuenciaLocal: secuencia,
+      referenciaHorariaId: ref.id,
+      creadaLocalEn: creadaLocalEn,
+      datosJson: datosJson,
+      estadoEnvio: 'PENDIENTE_ENVIO',
+      actualizadoEn: DateTime.now().toUtc().toIso8601String(),
+    );
+
+    await _storage.encolarOperacion(op);
+    return op;
+  }
+
   /// Sincroniza todas las operaciones pendientes de la empresa y usuario activo.
   /// Se ejecuta con la app abierta al detectar red, con control de reentradas.
   Future<List<ResultadoOperacionDTO>> sincronizarPendientes({

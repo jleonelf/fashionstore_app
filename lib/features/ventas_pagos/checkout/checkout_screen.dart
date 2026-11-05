@@ -20,6 +20,7 @@ import '../services/entrega_service.dart';
 import '../../../core/ui/async_view.dart';
 import '../../../core/ui/colores.dart';
 import '../../../core/ui/componentes_ciclo3.dart';
+import '../../reservas_traslados/services/sincronizacion_offline_service.dart';
 import '../carrito/carrito_store.dart';
 import '../pago/pago_screen.dart';
 
@@ -29,6 +30,7 @@ class CheckoutScreen extends StatefulWidget {
   final SucursalService? servicioSucursal;
   final EntregaService? servicioEntrega;
   final TasaCambioService? servicioTasa;
+  final SincronizacionOfflineService? servicioSincronizacion;
   const CheckoutScreen({
     super.key,
     this.servicioCarrito,
@@ -36,6 +38,7 @@ class CheckoutScreen extends StatefulWidget {
     this.servicioSucursal,
     this.servicioEntrega,
     this.servicioTasa,
+    this.servicioSincronizacion,
   });
 
   @override
@@ -48,6 +51,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   late final SucursalService _sucursalSrv;
   late final EntregaService _entregaSrv;
   late final TasaCambioService _tasaSrv;
+  late final SincronizacionOfflineService _sincronizacionSrv;
 
   bool _cargando = true;
   String? _error;
@@ -74,6 +78,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _sucursalSrv = widget.servicioSucursal ?? SucursalService();
     _entregaSrv = widget.servicioEntrega ?? EntregaService();
     _tasaSrv = widget.servicioTasa ?? TasaCambioService();
+    _sincronizacionSrv = widget.servicioSincronizacion ?? SincronizacionOfflineService();
     _cargar();
   }
 
@@ -220,6 +225,73 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  Future<void> _encolarCompraOffline() async {
+    if (_confirmando) return;
+    final msg = _validar();
+    if (msg != null) {
+      setState(() => _errorConfirmacion = msg);
+      return;
+    }
+    if (_carrito == null || _carrito!.lineas.isEmpty) return;
+
+    setState(() {
+      _confirmando = true;
+      _errorConfirmacion = null;
+    });
+
+    try {
+      final lineas = _carrito!.lineas
+          .map((l) => {
+                'variante_id': l.varianteId,
+                'cantidad': l.cantidad,
+                'precio_unitario_bob': l.precioUnitario,
+              })
+          .toList();
+
+      final op = await _sincronizacionSrv.encolarCompraOffline(
+        sucursalId: _sucursalSel!,
+        modalidad: _modalidad,
+        direccion: _modalidad == ModalidadEntrega.delivery
+            ? _direccion.text.trim()
+            : null,
+        anilloDestino:
+            _modalidad == ModalidadEntrega.delivery ? _anillo : null,
+        lineas: lineas,
+      );
+
+      await CarritoStore.instancia.limpiarReferenciaLocal();
+      if (!mounted) return;
+
+      setState(() => _confirmando = false);
+
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Compra guardada offline (CU05 v3)'),
+          content: Text(
+            'Tu solicitud de compra (${op.operacionId.substring(0, 8)}…) fue encolada de forma duradera.\n\nSe sincronizará automáticamente con el servidor cuando se detecte conexión activa.',
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Entendido'),
+            ),
+          ],
+        ),
+      );
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorConfirmacion = 'Error al encolar compra offline: $e';
+        _confirmando = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -244,13 +316,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         if (_modalidad == ModalidadEntrega.delivery)
                           _paso('4 · Datos de entrega', _datosDelivery()),
                         _paso('5 · Revisa los totales', _totales()),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          key: const Key('btn_compra_offline_cu05'),
+                          onPressed: _confirmando ? null : _encolarCompraOffline,
+                          icon: const Icon(Icons.cloud_off_outlined),
+                          label: const Text('Guardar compra offline (CU05 v3)'),
+                        ),
                         if (_errorConfirmacion != null)
                           Card(
                             child: Padding(
                               padding: const EdgeInsets.all(12),
-                              child: Text(
-                                _errorConfirmacion!,
-                                style: const TextStyle(color: ColoresFS.danger),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    _errorConfirmacion!,
+                                    style: const TextStyle(color: ColoresFS.danger),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextButton.icon(
+                                    onPressed: _encolarCompraOffline,
+                                    icon: const Icon(Icons.cloud_off),
+                                    label: const Text('Intentar guardar offline ahora'),
+                                  ),
+                                ],
                               ),
                             ),
                           ),

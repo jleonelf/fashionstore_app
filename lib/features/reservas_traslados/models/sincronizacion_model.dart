@@ -140,10 +140,28 @@ class OperacionSincronizacionLocal {
       datos = jsonDecode(datosJson) as Map<String, dynamic>;
     } catch (_) {}
 
+    final tipo = datos['_tipo_operacion']?.toString() ?? 'SOLICITAR_RESERVA';
+    final datosClean = Map<String, dynamic>.from(datos)..remove('_tipo_operacion');
+
+    int versionEsquema = 1;
+    if (datos.containsKey('_version_esquema')) {
+      versionEsquema = (datos['_version_esquema'] as num).toInt();
+    } else if (datosClean.containsKey('version_esquema')) {
+      versionEsquema = (datosClean['version_esquema'] as num).toInt();
+    } else if (tipo == 'SOLICITAR_COMPRA') {
+      if (datosClean.containsKey('autorizacion_cobro') && datosClean['autorizacion_cobro'] != null) {
+        versionEsquema = 3;
+      } else if (datosClean.containsKey('modalidad')) {
+        versionEsquema = 2;
+      }
+    }
+    datosClean.remove('_version_esquema');
+    datosClean.remove('version_esquema');
+
     return {
-      'version_esquema': 1,
+      'version_esquema': versionEsquema,
       'operacion_id': operacionId,
-      'tipo': 'SOLICITAR_RESERVA',
+      'tipo': tipo,
       'creada_local_en': creadaLocalEn,
       'empresa_id': empresaId,
       'usuario_id': usuarioId,
@@ -151,7 +169,7 @@ class OperacionSincronizacionLocal {
       'secuencia_local': secuenciaLocal,
       if (referenciaHorariaId != null && referenciaHorariaId!.isNotEmpty)
         'referencia_horaria_id': referenciaHorariaId,
-      'datos': datos,
+      'datos': datosClean,
     };
   }
 
