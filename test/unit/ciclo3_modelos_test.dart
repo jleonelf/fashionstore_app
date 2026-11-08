@@ -9,6 +9,28 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('Carrito', () {
+    test('lee importes del carrito durable CU21 sin mostrar cero', () {
+      final c = CarritoCompra.fromJson({
+        'id': 'car-2',
+        'cliente_id': 'cli-2',
+        'canal': 'MOVIL',
+        'estado': 'ACTIVO',
+        'total_estimado_bob': '130.00',
+        'lineas': [
+          {
+            'id': 'l2',
+            'variante_id': 'v2',
+            'cantidad': 1,
+            'precio_unitario_bob': '130.00',
+            'subtotal_bob': '130.00',
+          },
+        ],
+      });
+      expect(c.lineas.single.precioUnitario, 130);
+      expect(c.lineas.single.subtotal, 130);
+      expect(c.total, 130);
+    });
+
     test('vacío y totales del backend como String o número', () {
       final c = CarritoCompra.fromJson({
         'id': 'car-1',

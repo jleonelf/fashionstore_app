@@ -47,10 +47,10 @@ class LineaCarrito {
         id: '${j['id'] ?? ''}',
         varianteId: '${j['variante_id'] ?? ''}',
         cantidad: (j['cantidad'] as num?)?.toInt() ?? 0,
-        precioUnitario: _aDouble(j['precio_unitario']),
+        precioUnitario: _aDouble(j['precio_unitario_bob'] ?? j['precio_unitario']),
         descuentoUnitario: _aDouble(j['descuento_unitario']),
         promocionId: j['promocion_id']?.toString(),
-        subtotal: _aDouble(j['subtotal']),
+        subtotal: _aDouble(j['subtotal_bob'] ?? j['subtotal']),
       );
 
   Map<String, dynamic> toJson() => {
@@ -115,9 +115,9 @@ class CarritoCompra {
             .whereType<Map>()
             .map((e) => LineaCarrito.fromJson(e.cast<String, dynamic>()))
             .toList(),
-        subtotal: _aDouble(j['subtotal']),
+        subtotal: _aDouble(j['subtotal'] ?? j['total_estimado_bob']),
         descuentoTotal: _aDouble(j['descuento_total']),
-        total: _aDouble(j['total']),
+        total: _aDouble(j['total'] ?? j['total_estimado_bob']),
       );
 
   Map<String, dynamic> toJson() => {

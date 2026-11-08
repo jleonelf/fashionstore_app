@@ -22,14 +22,24 @@ class AdaptadorStripe implements PuertoStripe {
     _configurado = true;
   }
 
+  /// Construye los parámetros de PaymentSheet distinguiendo SetupIntent (seti_...) de PaymentIntent (pi_...).
+  static SetupPaymentSheetParameters construirParametros({
+    required String clientSecret,
+    String merchantDisplayName = 'FashionStore',
+  }) {
+    final esSetupIntent = clientSecret.startsWith('seti_');
+    return SetupPaymentSheetParameters(
+      setupIntentClientSecret: esSetupIntent ? clientSecret : null,
+      paymentIntentClientSecret: esSetupIntent ? null : clientSecret,
+      merchantDisplayName: merchantDisplayName,
+    );
+  }
+
   @override
   Future<void> inicializarHoja({required String clientSecret}) async {
     _asegurarConfiguracion();
     await Stripe.instance.initPaymentSheet(
-      paymentSheetParameters: SetupPaymentSheetParameters(
-        paymentIntentClientSecret: clientSecret,
-        merchantDisplayName: 'FashionStore',
-      ),
+      paymentSheetParameters: construirParametros(clientSecret: clientSecret),
     );
   }
 

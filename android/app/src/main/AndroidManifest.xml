@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Necesario en release y debug: la app consume el backend por HTTP(S). -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Permiso para notificaciones push en Android 13+ (API 33+, Tiramisu) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Permiso para recepción de mensajes push FCM en segundo plano / reposo -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <!-- Probador virtual Decart: video en vivo sin audio (sin RECORD_AUDIO). -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
@@ -37,6 +41,7 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

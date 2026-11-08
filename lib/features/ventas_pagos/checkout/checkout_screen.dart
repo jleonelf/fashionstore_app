@@ -6,6 +6,8 @@
 // calcula totales definitivos.
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/utils/bolivia_time.dart';
+import '../../../core/session/session_manager.dart';
 
 import '../models/carrito_model.dart';
 import '../models/checkout_model.dart';
@@ -17,6 +19,7 @@ import '../../organizacion/services/tasa_cambio_service.dart';
 import '../services/carrito_service.dart';
 import '../services/checkout_service.dart';
 import '../services/entrega_service.dart';
+import '../services/stripe_service.dart';
 import '../../../core/ui/async_view.dart';
 import '../../../core/ui/colores.dart';
 import '../../../core/ui/componentes_ciclo3.dart';
@@ -31,6 +34,11 @@ class CheckoutScreen extends StatefulWidget {
   final EntregaService? servicioEntrega;
   final TasaCambioService? servicioTasa;
   final SincronizacionOfflineService? servicioSincronizacion;
+  final PagoService? servicioPago;
+  final String? metodoPreparadoId;
+  final String? empresaId;
+  final String? usuarioId;
+
   const CheckoutScreen({
     super.key,
     this.servicioCarrito,
@@ -39,6 +47,10 @@ class CheckoutScreen extends StatefulWidget {
     this.servicioEntrega,
     this.servicioTasa,
     this.servicioSincronizacion,
+    this.servicioPago,
+    this.metodoPreparadoId,
+    this.empresaId,
+    this.usuarioId,
   });
 
   @override
@@ -52,6 +64,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   late final EntregaService _entregaSrv;
   late final TasaCambioService _tasaSrv;
   late final SincronizacionOfflineService _sincronizacionSrv;
+  late final PagoService _pagoSrv;
 
   bool _cargando = true;
   String? _error;
@@ -70,6 +83,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String? _errorConfirmacion;
   final String _claveConfirmacion = const Uuid().v4();
 
+  // CU05 / CU22: Método preparado y sesión
+  String? _metodoPreparadoId;
+  bool _metodoPreparadoListo = false;
+  String? _empresaId;
+  String? _usuarioId;
+
   @override
   void initState() {
     super.initState();
@@ -79,6 +98,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _entregaSrv = widget.servicioEntrega ?? EntregaService();
     _tasaSrv = widget.servicioTasa ?? TasaCambioService();
     _sincronizacionSrv = widget.servicioSincronizacion ?? SincronizacionOfflineService();
+    _pagoSrv = widget.servicioPago ?? PagoService();
     _cargar();
   }
 
@@ -105,12 +125,47 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         final cob = await _carritoSrv.cobertura();
         cubren = cob.queCubren.map((e) => e.sucursalId).toSet();
       } catch (_) {}
+
+      // CU05: Consultar si existe un método preparado previamente confirmado (LISTO)
+      String? metodoId = widget.metodoPreparadoId ?? await _pagoSrv.obtenerMetodoPreparadoIdLocal();
+      bool listo = false;
+      if (metodoId != null && metodoId.isNotEmpty) {
+        try {
+          final info = await _pagoSrv.consultarMetodoPreparado(metodoId);
+          if (info['estado'] == 'LISTO') {
+            listo = true;
+            await _pagoSrv.guardarMetodoPreparado(metodoId: metodoId, estado: 'LISTO');
+          }
+        } catch (_) {
+          final estadoLocal = await _pagoSrv.obtenerMetodoPreparadoEstadoLocal();
+          if (estadoLocal == 'LISTO') {
+            listo = true;
+          }
+        }
+      }
+
+      String? empId = widget.empresaId;
+      String? usrId = widget.usuarioId;
+      if (empId == null || usrId == null) {
+        try {
+          final sesion = await SessionManager().leerValida();
+          if (sesion != null) {
+            empId ??= sesion.usuario.empresaId;
+            usrId ??= sesion.usuario.usuarioId;
+          }
+        } catch (_) {}
+      }
+
       if (!mounted) return;
       setState(() {
         _carrito = carrito;
         _sucursales = sucursales.where((s) => s.activa).toList();
         _cubren = cubren;
         _tasaVigente = tasa;
+        _metodoPreparadoId = metodoId;
+        _metodoPreparadoListo = listo;
+        _empresaId = empId;
+        _usuarioId = usrId;
         _cargando = false;
         if (_sucursalSel == null) {
           final primera = _sucursales.where((s) => cubren.contains(s.id));
@@ -225,6 +280,62 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  Widget _estadoCobroOffline() {
+    final tieneMetodo = _metodoPreparadoListo && _metodoPreparadoId != null && _metodoPreparadoId!.isNotEmpty;
+    final tieneTasa = _tasaVigente != null && _tasaVigente!.id.isNotEmpty && _tasaVigente!.tasaBobPorUsd > 0;
+    final cobroListo = tieneMetodo && tieneTasa;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cobroListo ? const Color(0xFFE8F5E9) : const Color(0xFFFFF8E1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: cobroListo ? const Color(0xFFA5D6A7) : const Color(0xFFFFD54F),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            cobroListo ? Icons.check_circle_outline : Icons.info_outline,
+            color: cobroListo ? ColoresFS.success : const Color(0xFFF57F17),
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  cobroListo
+                      ? 'Cobro automático offline habilitado'
+                      : 'Cobro automático offline desactivado',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  cobroListo
+                      ? 'Método preparado verificado y tasa oficial vigente. Se cobrará automáticamente al reconectar.'
+                      : (!tieneMetodo && !tieneTasa)
+                          ? 'Sin método de pago preparado (LISTO) ni tasa oficial. La solicitud se encolará sin cobro automático (requerirá intervención).'
+                          : !tieneMetodo
+                              ? 'Sin método preparado confirmado (LISTO). Requiere pago manual al reconectar.'
+                              : 'Sin tasa oficial vigente. Requiere confirmación al reconectar.',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _encolarCompraOffline() async {
     if (_confirmando) return;
     final msg = _validar();
@@ -248,6 +359,76 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               })
           .toList();
 
+      final subtotal = _carrito!.subtotal;
+      final descuento = _carrito!.descuentoTotal;
+      final costoEntrega = (_modalidad == ModalidadEntrega.delivery && _cotizacion != null)
+          ? _cotizacion!.costoEntrega
+          : 0.0;
+      final totalBob = subtotal - descuento + costoEntrega;
+
+      // CU05: Verificar si existe método preparado LISTO real y tasa vigente real
+      final tieneMetodoListo = _metodoPreparadoListo && _metodoPreparadoId != null && _metodoPreparadoId!.isNotEmpty;
+      final tieneTasaReal = _tasaVigente != null && _tasaVigente!.id.isNotEmpty && _tasaVigente!.tasaBobPorUsd > 0;
+
+      final Map<String, dynamic>? autorizacionCobro;
+
+      if (tieneMetodoListo && tieneTasaReal) {
+        // Flujo verificado: tasa real y método LISTO confirmados
+        final tasaVal = _tasaVigente!.tasaBobPorUsd;
+        final tasaId = _tasaVigente!.id;
+        final metodoId = _metodoPreparadoId!;
+        final importeUsd = (totalBob / tasaVal).toStringAsFixed(2);
+        final consentimientoId = const Uuid().v4();
+        final aceptadoLocalEn = BoliviaTime.formatIso8601(BoliviaTime.now());
+        final expiraDateTime = DateTime.now().add(const Duration(hours: 24)).toUtc();
+        final expiraEn = '${expiraDateTime.year.toString().padLeft(4, '0')}-${expiraDateTime.month.toString().padLeft(2, '0')}-${expiraDateTime.day.toString().padLeft(2, '0')}T${expiraDateTime.hour.toString().padLeft(2, '0')}:${expiraDateTime.minute.toString().padLeft(2, '0')}:${expiraDateTime.second.toString().padLeft(2, '0')}Z';
+
+        final empId = _empresaId ?? '11111111-1111-1111-1111-111111111111';
+        final usrId = _usuarioId ?? '55555555-5555-5555-5555-555555555555';
+
+        // Huella canónica estricta v3
+        final huellaSha = calcularHuellaCompraCanonica(
+          empresaId: empId,
+          usuarioId: usrId,
+          sucursalId: _sucursalSel!,
+          modalidad: _modalidad,
+          direccion: _modalidad == ModalidadEntrega.delivery ? _direccion.text.trim() : null,
+          lineas: lineas,
+          baseBob: subtotal,
+          descuentoBob: descuento,
+          envioBob: costoEntrega,
+          totalBob: totalBob,
+          monedaCobro: 'USD',
+          importeCobro: double.parse(importeUsd),
+          tasaId: tasaId,
+          tasaBobPorUsd: tasaVal,
+          condicionesVersion: 'v3',
+          vigenteHasta: expiraEn,
+        );
+
+        autorizacionCobro = {
+          'consentimiento_id': consentimientoId,
+          'aceptado_local_en': aceptadoLocalEn,
+          'huella_compra': huellaSha,
+          'base_bob': subtotal.toStringAsFixed(2),
+          'descuento_bob': descuento.toStringAsFixed(2),
+          'envio_bob': costoEntrega.toStringAsFixed(2),
+          'total_bob': totalBob.toStringAsFixed(2),
+          'moneda_cobro': 'USD',
+          'importe_cobro': importeUsd,
+          'tasa_id': tasaId,
+          'tasa_bob_por_usd': tasaVal.toStringAsFixed(2),
+          'condiciones_version': 'v3',
+          'vigente_hasta': expiraEn,
+          'preparacion_pago_id': metodoId,
+          'permite_cobro_al_reconectar': true,
+        };
+      } else {
+        // Sin método LISTO o sin tasa real: NO construir Map parcial con permite_cobro_al_reconectar: false.
+        // Se omite completamente (autorizacionCobro = null) para encolar la operación sin cobro automático.
+        autorizacionCobro = null;
+      }
+
       final op = await _sincronizacionSrv.encolarCompraOffline(
         sucursalId: _sucursalSel!,
         modalidad: _modalidad,
@@ -257,6 +438,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         anilloDestino:
             _modalidad == ModalidadEntrega.delivery ? _anillo : null,
         lineas: lineas,
+        autorizacionCobro: autorizacionCobro,
+        empresaId: _empresaId,
+        usuarioId: _usuarioId,
       );
 
       await CarritoStore.instancia.limpiarReferenciaLocal();
@@ -264,12 +448,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       setState(() => _confirmando = false);
 
+      final cobroAutorizado = autorizacionCobro != null && autorizacionCobro['permite_cobro_al_reconectar'] == true;
+      final motivoSinCobro = !tieneMetodoListo && !tieneTasaReal
+          ? 'No hay método de pago preparado (LISTO) ni tasa oficial vigente.'
+          : !tieneMetodoListo
+              ? 'No hay método de pago preparado previamente confirmado (LISTO).'
+              : 'No se cuenta con una tasa de cambio oficial vigente del servidor.';
+
       await showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Compra guardada offline (CU05 v3)'),
           content: Text(
-            'Tu solicitud de compra (${op.operacionId.substring(0, 8)}…) fue encolada de forma duradera.\n\nSe sincronizará automáticamente con el servidor cuando se detecte conexión activa.',
+            cobroAutorizado
+                ? 'Tu solicitud de compra (${op.operacionId.substring(0, 8)}…) fue encolada de forma duradera con cobro automático autorizado mediante tu método preparado.\n\nSe sincronizará automáticamente con el servidor cuando se detecte conexión activa.'
+                : 'Tu solicitud de compra (${op.operacionId.substring(0, 8)}…) fue encolada de forma duradera.\n\nEstado previsto: PENDIENTE_INTERVENCION.\nMotivo: $motivoSinCobro\nCobro automático: Desactivado (permite_cobro_al_reconectar = false).\n\nAl reconectar deberás completar el pago manualmente.',
           ),
           actions: [
             ElevatedButton(
@@ -316,6 +509,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         if (_modalidad == ModalidadEntrega.delivery)
                           _paso('4 · Datos de entrega', _datosDelivery()),
                         _paso('5 · Revisa los totales', _totales()),
+                        const SizedBox(height: 8),
+                        _estadoCobroOffline(),
                         const SizedBox(height: 8),
                         OutlinedButton.icon(
                           key: const Key('btn_compra_offline_cu05'),

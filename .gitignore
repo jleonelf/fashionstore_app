@@ -38,6 +38,7 @@ migrate_working_dir/
 **/android/gradlew.bat
 **/android/local.properties
 **/android/**/GeneratedPluginRegistrant.java
+android/app/google-services.json
 
 # iOS/Xcode related
 **/ios/**/*.mode1v3

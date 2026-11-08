@@ -13,6 +13,7 @@ import 'package:fashionstore_movil/core/utils/bolivia_time.dart';
 import 'package:fashionstore_movil/features/identidad_empresas/models/usuario_model.dart';
 import 'package:fashionstore_movil/features/reservas_traslados/models/sincronizacion_model.dart';
 import 'package:fashionstore_movil/features/reservas_traslados/services/sincronizacion_offline_service.dart';
+import 'package:fashionstore_movil/features/ventas_pagos/services/stripe_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -428,6 +429,149 @@ void main() {
 
       expect(BoliviaTime.estaDentroVentana8Horas(strHace4Horas), isTrue);
       expect(BoliviaTime.estaDentroVentana8Horas(strHace9Horas), isFalse);
+    });
+
+    test('Canonicalización exacta v3 (Vector 1 RECOJO y Vector 2 DELIVERY)', () {
+      final h1 = calcularHuellaCompraCanonica(
+        empresaId: '11111111-1111-1111-1111-111111111111',
+        usuarioId: '55555555-5555-5555-5555-555555555555',
+        sucursalId: '33333333-3333-3333-3333-333333333333',
+        modalidad: 'RECOJO',
+        lineas: [
+          {
+            'cantidad': 1,
+            'precio_unitario_bob': '100.00',
+            'variante_id': '22222222-2222-2222-2222-222222222222',
+          }
+        ],
+        baseBob: 100.0,
+        descuentoBob: 0.0,
+        envioBob: 0.0,
+        totalBob: 100.0,
+        monedaCobro: 'USD',
+        importeCobro: 14.37,
+        tasaId: '44444444-4444-4444-4444-444444444444',
+        tasaBobPorUsd: 6.96,
+        condicionesVersion: 'v3',
+        vigenteHasta: '2026-11-06T15:00:00Z',
+      );
+      expect(h1, equals('5249e0cea418ec6262f9f0ef7a71686d2d6cecf8c4083dafe77aa0d24c3eacee'));
+
+      final h2 = calcularHuellaCompraCanonica(
+        empresaId: '11111111-1111-1111-1111-111111111111',
+        usuarioId: '55555555-5555-5555-5555-555555555555',
+        sucursalId: '33333333-3333-3333-3333-333333333333',
+        modalidad: 'DELIVERY',
+        direccion: 'Av. Las Americas 123',
+        lineas: [
+          {
+            'cantidad': 1,
+            'precio_unitario_bob': '100.00',
+            'variante_id': '22222222-2222-2222-2222-222222222222',
+          }
+        ],
+        baseBob: 100.0,
+        descuentoBob: 0.0,
+        envioBob: 15.0,
+        totalBob: 115.0,
+        monedaCobro: 'USD',
+        importeCobro: 16.52,
+        tasaId: '44444444-4444-4444-4444-444444444444',
+        tasaBobPorUsd: 6.96,
+        condicionesVersion: 'v3',
+        vigenteHasta: '2026-11-06T15:00:00Z',
+      );
+      expect(h2, equals('b095703bdd526b2a7da5d97f5e52dbe7ec7a118d72511c72b9602cd03fd98f07'));
+    });
+
+    test('encolarCompraOffline con autorizacionCobro == null omite autorizacion_cobro en SQLite (CU05 Bloqueo 3)', () async {
+      final ref = ReferenciaHorariaModel(
+        id: '44444444-4444-4444-8444-444444444444',
+        empresaId: testEmpresaId,
+        usuarioId: testUsuarioId,
+        dispositivoId: 'disp-android-1',
+        horaCentralEn: '2026-11-01T14:00:00-04:00',
+        validaHasta: '2030-11-01T22:00:00-04:00',
+        toleranciaSegundos: 60,
+        politicaVersion: 1,
+        emitidaEn: '2026-11-01T14:00:00-04:00',
+      );
+      await storage.guardarReferenciaHoraria(ref);
+
+      final service = SincronizacionOfflineService(
+        storage: storage,
+        sesiones: sessionManager,
+      );
+
+      final op = await service.encolarCompraOffline(
+        sucursalId: testSucursalId,
+        lineas: [
+          {'variante_id': testVarianteId, 'cantidad': 1, 'precio_unitario_bob': 100.0}
+        ],
+        modalidad: 'RECOJO',
+        autorizacionCobro: null,
+        dispositivoId: 'disp-android-1',
+      );
+
+      final decoded = jsonDecode(op.datosJson) as Map<String, dynamic>;
+      expect(decoded.containsKey('autorizacion_cobro'), isFalse);
+      expect(decoded['sucursal_id'], equals(testSucursalId));
+      expect(decoded['modalidad'], equals('RECOJO'));
+    });
+
+    test('encolarCompraOffline con autorizacionCobro completa de 15 campos persiste bloque en SQLite (CU05)', () async {
+      final ref = ReferenciaHorariaModel(
+        id: '44444444-4444-4444-8444-444444444444',
+        empresaId: testEmpresaId,
+        usuarioId: testUsuarioId,
+        dispositivoId: 'disp-android-1',
+        horaCentralEn: '2026-11-01T14:00:00-04:00',
+        validaHasta: '2030-11-01T22:00:00-04:00',
+        toleranciaSegundos: 60,
+        politicaVersion: 1,
+        emitidaEn: '2026-11-01T14:00:00-04:00',
+      );
+      await storage.guardarReferenciaHoraria(ref);
+
+      final service = SincronizacionOfflineService(
+        storage: storage,
+        sesiones: sessionManager,
+      );
+
+      final auth15Campos = {
+        'consentimiento_id': '11111111-2222-3333-4444-555555555555',
+        'aceptado_local_en': '2026-11-05T15:00:00-04:00',
+        'huella_compra': 'a' * 64,
+        'base_bob': '100.00',
+        'descuento_bob': '0.00',
+        'envio_bob': '0.00',
+        'total_bob': '100.00',
+        'moneda_cobro': 'USD',
+        'importe_cobro': '14.37',
+        'tasa_id': 'tasa-uuid-1',
+        'tasa_bob_por_usd': '6.96',
+        'condiciones_version': 'v3',
+        'vigente_hasta': '2026-11-06T15:00:00Z',
+        'preparacion_pago_id': 'prep-uuid-1',
+        'permite_cobro_al_reconectar': true,
+      };
+
+      final op = await service.encolarCompraOffline(
+        sucursalId: testSucursalId,
+        lineas: [
+          {'variante_id': testVarianteId, 'cantidad': 1, 'precio_unitario_bob': 100.0}
+        ],
+        modalidad: 'RECOJO',
+        autorizacionCobro: auth15Campos,
+        dispositivoId: 'disp-android-1',
+      );
+
+      final decoded = jsonDecode(op.datosJson) as Map<String, dynamic>;
+      expect(decoded.containsKey('autorizacion_cobro'), isTrue);
+      final persistedAuth = decoded['autorizacion_cobro'] as Map<String, dynamic>;
+      expect(persistedAuth.keys.length, equals(15));
+      expect(persistedAuth['permite_cobro_al_reconectar'], isTrue);
+      expect(persistedAuth['preparacion_pago_id'], equals('prep-uuid-1'));
     });
   });
 }

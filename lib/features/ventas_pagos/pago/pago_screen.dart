@@ -262,18 +262,39 @@ class _PagoScreenState extends State<PagoScreen> with WidgetsBindingObserver {
         final res = await _hoja.presentarHoja();
         if (!mounted) return;
         if (res == ResultadoHojaPago.completado && prepId != null) {
-          await _pagos.consultarMetodoPreparado(prepId);
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Método de pago vinculado con éxito (SetupIntent CU22).'),
-            ),
-          );
+          await _pagos.confirmarMetodoPreparado(metodoId: prepId);
+          final info = await _pagos.consultarMetodoPreparado(prepId);
+          final estado = info['estado']?.toString();
+          if (estado == 'LISTO') {
+            await _pagos.guardarMetodoPreparado(metodoId: prepId, estado: 'LISTO');
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Método de pago vinculado con éxito (SetupIntent CU22).'),
+              ),
+            );
+          } else {
+            if (!mounted) return;
+            final mensaje = 'El método de pago no quedó listo en el servidor (estado: ${estado ?? "DESCONOCIDO"}).';
+            setState(() => _error = mensaje);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(mensaje),
+                backgroundColor: ColoresFS.warning,
+              ),
+            );
+          }
         }
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al preparar método de pago: $e'),
+          backgroundColor: ColoresFS.danger,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _pagando = false);
     }

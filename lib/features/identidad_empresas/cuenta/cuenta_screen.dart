@@ -122,9 +122,11 @@ class _CuentaScreenState extends State<CuentaScreen> {
                 final ok = await Navigator.push<bool>(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => Scaffold(
+                    builder: (loginContext) => Scaffold(
                       appBar: AppBar(title: const Text('Inicia sesión')),
-                      body: LoginScreen(onLoginOk: () {}),
+                      body: LoginScreen(
+                        onLoginOk: () => Navigator.pop(loginContext, true),
+                      ),
                     ),
                   ),
                 );
@@ -150,9 +152,11 @@ class _CuentaScreenState extends State<CuentaScreen> {
                   final ok = await Navigator.push<bool>(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => Scaffold(
+                      builder: (loginContext) => Scaffold(
                         appBar: AppBar(title: const Text('Inicia sesión')),
-                        body: LoginScreen(onLoginOk: () {}),
+                        body: LoginScreen(
+                          onLoginOk: () => Navigator.pop(loginContext, true),
+                        ),
                       ),
                     ),
                   );
