@@ -1,6 +1,7 @@
 class ClientePerfilModel {
   final String id;
   final String usuarioId;
+  final String? empresaId;
   final String nombres;
   final String apellidos;
   final String nombreCompleto;
@@ -16,6 +17,7 @@ class ClientePerfilModel {
   ClientePerfilModel({
     required this.id,
     required this.usuarioId,
+    this.empresaId,
     required this.nombres,
     required this.apellidos,
     required this.nombreCompleto,
@@ -33,6 +35,7 @@ class ClientePerfilModel {
     return ClientePerfilModel(
       id: json['id'] ?? '',
       usuarioId: json['usuario_id'] ?? '',
+      empresaId: json['empresa_id']?.toString(),
       nombres: json['nombres'] ?? '',
       apellidos: json['apellidos'] ?? '',
       nombreCompleto: json['nombre_completo'] ?? '',
@@ -53,6 +56,7 @@ class ClientePerfilModel {
     return {
       'id': id,
       'usuario_id': usuarioId,
+      if (empresaId != null) 'empresa_id': empresaId,
       'nombres': nombres,
       'apellidos': apellidos,
       'nombre_completo': nombreCompleto,

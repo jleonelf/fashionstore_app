@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/catalogo_model.dart';
+import '../models/catalogo_snapshot_model.dart';
 import '../services/catalogo_service.dart';
 import '../../../core/ui/async_view.dart';
 import '../../../core/ui/formato.dart';
@@ -8,7 +9,8 @@ import '../../experiencia_cliente/busqueda/buscador_voz.dart';
 import '../../experiencia_cliente/recomendaciones/recomendaciones_section.dart';
 import 'producto_detalle_screen.dart';
 
-/// Catálogo con búsqueda, filtros y paginado.
+/// Catálogo con búsqueda, filtros, paginado, descarga offline (CU03)
+/// y consulta local sobre SQLite (CU16).
 class CatalogoScreen extends StatefulWidget {
   final CatalogoService? servicio;
   const CatalogoScreen({super.key, this.servicio});
@@ -24,8 +26,12 @@ class _CatalogoScreenState extends State<CatalogoScreen> {
 
   List<Producto> _items = [];
   FiltrosOpciones? _opciones;
+  SnapshotMetadata? _snapshotActivo;
   bool _cargando = true;
   bool _cargandoMas = false;
+  bool _descargandoSnapshot = false;
+  bool _esModoOffline = false;
+  bool _sinCopiaLocal = false;
   String? _error;
   String? _errorFiltros;
   int _offset = 0;
@@ -49,7 +55,15 @@ class _CatalogoScreenState extends State<CatalogoScreen> {
     setState(() {
       _cargando = true;
       _error = null;
+      _sinCopiaLocal = false;
     });
+
+    // 1. Obtener metadatos de snapshot local activo si existe
+    try {
+      _snapshotActivo = await _servicio.obtenerSnapshotActivo();
+    } catch (_) {}
+
+    // 2. Intentar consulta online
     try {
       final opciones = await _servicio.filtrosOpciones().catchError((_) {
         return FiltrosOpciones.vacio();
@@ -65,14 +79,54 @@ class _CatalogoScreenState extends State<CatalogoScreen> {
         _items = items;
         _offset = items.length;
         _hayMas = items.length >= _limite;
+        _esModoOffline = false;
+        _sinCopiaLocal = false;
         _cargando = false;
       });
     } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _cargando = false;
-      });
+      // 3. Fallback a consulta local en SQLite (CU16)
+      try {
+        final resLocal = await _servicio.consultarCatalogoLocal(
+          texto: _filtros.texto,
+          categoriaId: _filtros.categoriaId,
+          colorId: _filtros.colorId,
+          precioMin: _filtros.precioMin,
+          precioMax: _filtros.precioMax,
+          limit: _limite,
+          offset: 0,
+        );
+
+        if (!mounted) return;
+
+        if (resLocal.haySnapshot) {
+          setState(() {
+            _items = resLocal.items;
+            _snapshotActivo = resLocal.snapshot;
+            _offset = resLocal.items.length;
+            _hayMas = resLocal.items.length >= _limite;
+            _esModoOffline = true;
+            _sinCopiaLocal = false;
+            _cargando = false;
+            _error = null;
+          });
+        } else {
+          // No hay snapshot descargado ni red: no fingir lista vacía como catálogo actualizado
+          setState(() {
+            _items = [];
+            _sinCopiaLocal = true;
+            _esModoOffline = true;
+            _cargando = false;
+            _error =
+                'Catálogo no disponible sin conexión. No se ha descargado una copia local en este dispositivo.';
+          });
+        }
+      } catch (errLocal) {
+        if (!mounted) return;
+        setState(() {
+          _error = e.toString();
+          _cargando = false;
+        });
+      }
     }
   }
 
@@ -80,20 +134,72 @@ class _CatalogoScreenState extends State<CatalogoScreen> {
     if (_cargandoMas || !_hayMas) return;
     setState(() => _cargandoMas = true);
     try {
-      final mas = await _servicio.listarProductos(
-        filtros: _filtros,
-        limit: _limite,
-        offset: _offset,
-      );
-      if (!mounted) return;
-      setState(() {
-        _items.addAll(mas);
-        _offset += mas.length;
-        _hayMas = mas.length >= _limite;
-        _cargandoMas = false;
-      });
+      if (_esModoOffline) {
+        final resLocal = await _servicio.consultarCatalogoLocal(
+          texto: _filtros.texto,
+          categoriaId: _filtros.categoriaId,
+          colorId: _filtros.colorId,
+          precioMin: _filtros.precioMin,
+          precioMax: _filtros.precioMax,
+          limit: _limite,
+          offset: _offset,
+        );
+        if (!mounted) return;
+        setState(() {
+          _items.addAll(resLocal.items);
+          _offset += resLocal.items.length;
+          _hayMas = resLocal.items.length >= _limite;
+          _cargandoMas = false;
+        });
+      } else {
+        final mas = await _servicio.listarProductos(
+          filtros: _filtros,
+          limit: _limite,
+          offset: _offset,
+        );
+        if (!mounted) return;
+        setState(() {
+          _items.addAll(mas);
+          _offset += mas.length;
+          _hayMas = mas.length >= _limite;
+          _cargandoMas = false;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _cargandoMas = false);
+    }
+  }
+
+  /// Descarga el snapshot completo del catálogo en SQLite para consulta offline (CU03).
+  Future<void> _descargarSnapshotOffline() async {
+    if (_descargandoSnapshot) return;
+    setState(() => _descargandoSnapshot = true);
+    try {
+      final snap = await _servicio.descargarCatalogo();
+      final meta = await _servicio.obtenerSnapshotActivo();
+      if (!mounted) return;
+      setState(() {
+        _snapshotActivo = meta;
+        _descargandoSnapshot = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Catálogo descargado (v${snap.catalogoVersion}, ${snap.productos.length} prendas). Disponible sin conexión.',
+          ),
+          backgroundColor: Colors.green.shade800,
+        ),
+      );
+      _cargarTodo();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _descargandoSnapshot = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo descargar el catálogo offline: $e'),
+          backgroundColor: Colors.red.shade800,
+        ),
+      );
     }
   }
 
@@ -262,9 +368,63 @@ class _CatalogoScreenState extends State<CatalogoScreen> {
     if (_cargando) {
       return const VistaCarga(mensaje: 'Buscando prendas…');
     }
+
+    if (_sinCopiaLocal) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.cloud_off_outlined, size: 64, color: Colors.grey.shade600),
+                const SizedBox(height: 16),
+                const Text(
+                  'Catálogo no descargado',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'No se encontró una copia local en este dispositivo. Conéctate a internet para descargar el catálogo.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: _descargandoSnapshot ? null : _descargarSnapshotOffline,
+                  icon: _descargandoSnapshot
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.download_outlined),
+                  label: const Text('Descargar catálogo al conectar'),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: _cargarTodo,
+                  child: const Text('Reintentar conexión'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     if (_error != null) {
       return VistaError(mensaje: _error!, onReintentar: _cargarTodo);
     }
+
+    final fechaDescarga = _snapshotActivo != null
+        ? formatoFecha(DateTime.tryParse(
+            _snapshotActivo!.guardadoLocalEn.isNotEmpty
+                ? _snapshotActivo!.guardadoLocalEn
+                : _snapshotActivo!.generadoEn,
+          ))
+        : '—';
+
     return RefreshIndicator(
       onRefresh: _cargarTodo,
       child: CustomScrollView(
@@ -273,7 +433,61 @@ class _CatalogoScreenState extends State<CatalogoScreen> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Indicador/Badge de modo offline (CU16) o estado del snapshot (CU03)
+                  if (_esModoOffline && _snapshotActivo != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        border: Border.all(color: Colors.blue.shade200),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.offline_pin_outlined,
+                              size: 20, color: Colors.blue.shade800),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Copia local — $fechaDescarga — Versión ${_snapshotActivo!.catalogoVersion}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.blue.shade900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton.icon(
+                          onPressed: _descargandoSnapshot
+                              ? null
+                              : _descargarSnapshotOffline,
+                          icon: _descargandoSnapshot
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.cloud_download_outlined, size: 18),
+                          label: Text(
+                            _snapshotActivo != null
+                                ? 'Copia local v${_snapshotActivo!.catalogoVersion}'
+                                : 'Descargar catálogo offline',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+
                   Row(
                     children: [
                       Expanded(
@@ -317,31 +531,31 @@ class _CatalogoScreenState extends State<CatalogoScreen> {
                     Text(_errorFiltros!,
                         style: const TextStyle(color: Colors.red)),
                   const SizedBox(height: 8),
-                  // Ciclo 3: voz como ayuda del buscador + recomendaciones,
-                  // colapsados para no sobrecargar el catálogo.
-                  const ExpansionTile(
-                    leading: Icon(Icons.mic_none_outlined),
-                    title: Text('Buscar por voz o texto'),
-                    subtitle:
-                        Text('Dicta, revisa el texto y encuentra prendas'),
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(8, 0, 8, 12),
-                        child: BuscadorConVoz(conTarjeta: false),
-                      ),
-                    ],
-                  ),
-                  const ExpansionTile(
-                    leading: Icon(Icons.auto_awesome_outlined),
-                    title: Text('Sugerencias para ti'),
-                    subtitle: Text('Prendas disponibles según tus visitas'),
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(8, 0, 8, 12),
-                        child: RecomendacionesSection(conTarjeta: false),
-                      ),
-                    ],
-                  ),
+                  if (!_esModoOffline) ...[
+                    const ExpansionTile(
+                      leading: Icon(Icons.mic_none_outlined),
+                      title: Text('Buscar por voz o texto'),
+                      subtitle:
+                          Text('Dicta, revisa el texto y encuentra prendas'),
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(8, 0, 8, 12),
+                          child: BuscadorConVoz(conTarjeta: false),
+                        ),
+                      ],
+                    ),
+                    const ExpansionTile(
+                      leading: Icon(Icons.auto_awesome_outlined),
+                      title: Text('Sugerencias para ti'),
+                      subtitle: Text('Prendas disponibles según tus visitas'),
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(8, 0, 8, 12),
+                          child: RecomendacionesSection(conTarjeta: false),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -371,7 +585,6 @@ class _CatalogoScreenState extends State<CatalogoScreen> {
                 delegate: SliverChildBuilderDelegate(
                   (ctx, i) {
                     if (i >= _items.length) {
-                      // Paginado: pedir la siguiente página una vez.
                       Future.microtask(_cargarMas);
                       return const Center(
                         child: Padding(
@@ -381,7 +594,10 @@ class _CatalogoScreenState extends State<CatalogoScreen> {
                       );
                     }
                     final p = _items[i];
-                    return _TarjetaProducto(producto: p);
+                    return _TarjetaProducto(
+                      producto: p,
+                      esModoOffline: _esModoOffline,
+                    );
                   },
                   childCount: _items.length + (_hayMas ? 1 : 0),
                 ),
@@ -395,7 +611,11 @@ class _CatalogoScreenState extends State<CatalogoScreen> {
 
 class _TarjetaProducto extends StatelessWidget {
   final Producto producto;
-  const _TarjetaProducto({required this.producto});
+  final bool esModoOffline;
+  const _TarjetaProducto({
+    required this.producto,
+    this.esModoOffline = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -414,18 +634,43 @@ class _TarjetaProducto extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              child: Container(
-                color: Colors.grey.shade100,
-                child: producto.imagenPrincipal.isEmpty
-                    ? const Icon(Icons.checkroom, size: 56, color: Colors.grey)
-                    : Image.network(
-                        producto.imagenPrincipal,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(
-                            Icons.checkroom,
-                            size: 56,
-                            color: Colors.grey),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Container(
+                    color: Colors.grey.shade100,
+                    child: producto.imagenPrincipal.isEmpty
+                        ? const Icon(Icons.checkroom, size: 56, color: Colors.grey)
+                        : Image.network(
+                            producto.imagenPrincipal,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(
+                                Icons.checkroom,
+                                size: 56,
+                                color: Colors.grey),
+                          ),
+                  ),
+                  if (esModoOffline)
+                    Positioned(
+                      top: 6,
+                      left: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade900.withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'Disponibilidad conocida',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
+                    ),
+                ],
               ),
             ),
             Padding(

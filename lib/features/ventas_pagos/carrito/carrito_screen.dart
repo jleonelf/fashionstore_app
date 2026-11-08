@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import '../models/carrito_model.dart';
 import '../../catalogo/models/catalogo_model.dart';
 import '../../experiencia_cliente/models/probador_model.dart';
+import '../../organizacion/models/tasa_cambio_model.dart';
+import '../../organizacion/services/tasa_cambio_service.dart';
 import '../services/carrito_service.dart';
 import '../../catalogo/services/catalogo_service.dart';
 import '../../../core/ui/async_view.dart';
@@ -22,8 +24,14 @@ class CarritoScreen extends StatefulWidget {
   final CarritoStore? store;
   final CarritoService? servicio;
   final CatalogoService? servicioCatalogo;
-  const CarritoScreen(
-      {super.key, this.store, this.servicio, this.servicioCatalogo});
+  final TasaCambioService? servicioTasa;
+  const CarritoScreen({
+    super.key,
+    this.store,
+    this.servicio,
+    this.servicioCatalogo,
+    this.servicioTasa,
+  });
 
   @override
   State<CarritoScreen> createState() => _CarritoScreenState();
@@ -50,8 +58,11 @@ class _DetalleLinea {
 class _CarritoScreenState extends State<CarritoScreen> {
   late final CarritoStore _store;
   late final CatalogoService _catalogo;
+  late final TasaCambioService _tasaSrv;
+  TasaCambioModel? _tasaVigente;
   final Map<String, _DetalleLinea> _detalles = {};
   bool _resolviendoNombres = false;
+
   @override
   void initState() {
     super.initState();
@@ -60,8 +71,17 @@ class _CarritoScreenState extends State<CarritoScreen> {
       _store.configurarParaPruebas(servicio: widget.servicio);
     }
     _catalogo = widget.servicioCatalogo ?? CatalogoService();
+    _tasaSrv = widget.servicioTasa ?? TasaCambioService();
     _store.addListener(_alCambiarStore);
     _store.cargar().then((_) => _resolverNombres());
+    _cargarTasa();
+  }
+
+  Future<void> _cargarTasa() async {
+    try {
+      final t = await _tasaSrv.obtenerTasaVigente();
+      if (mounted) setState(() => _tasaVigente = t);
+    } catch (_) {}
   }
 
   @override
@@ -473,6 +493,25 @@ class _CarritoScreenState extends State<CarritoScreen> {
                       etiqueta: 'Total a pagar',
                       valor: c.total,
                       destacado: true),
+                  if (_tasaVigente != null && c.total > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.currency_exchange,
+                              size: 14, color: ColoresFS.brassStrong),
+                          const SizedBox(width: 4),
+                          Text(
+                            '≈ USD ${(c.total / _tasaVigente!.tasaBobPorUsd).toStringAsFixed(2)} (Tasa oficial: ${_tasaVigente!.tasaBobPorUsd.toStringAsFixed(2)} BOB/USD · CU12)',
+                            style: const TextStyle(
+                              color: ColoresFS.brassStrong,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   if (conPromo > 0)
                     Padding(
                       padding: const EdgeInsets.only(top: 6),

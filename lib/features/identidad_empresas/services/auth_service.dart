@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import '../models/usuario_model.dart';
+import 'notificacion_movil_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/session/session_manager.dart';
@@ -7,6 +10,21 @@ import '../../../core/session/session_manager.dart';
 ///
 /// Usa el cliente centralizado + sesión persistente con vencimiento.
 class AuthService {
+  static NotificacionMovilService? _pushService;
+  static Future<void>? _pushInicializado;
+
+  /// Reutiliza una sola suscripcion FCM tras login y restauracion de sesion.
+  static Future<void> asegurarPushActivo() {
+    final activo = _pushInicializado;
+    if (activo != null) return activo;
+    final servicio = _pushService ??= NotificacionMovilService();
+    return _pushInicializado = servicio
+        .inicializar(autoRegistrarEnBackend: true)
+        .catchError((_) {
+      _pushInicializado = null;
+    });
+  }
+
   final ApiClient _api;
   final SessionManager _sesiones;
 
@@ -75,6 +93,8 @@ class AuthService {
         token: respuesta.accessToken,
         usuario: respuesta.usuario,
       );
+      // Vincula dispositivo móvil ante el backend (E2 Avisos)
+      unawaited(asegurarPushActivo());
       return respuesta;
     } on ApiException catch (e) {
       if (e.statusCode == 401) {
@@ -87,7 +107,18 @@ class AuthService {
     }
   }
 
-  Future<void> cerrarSesion() => _sesiones.limpiar();
+  Future<void> cerrarSesion() async {
+    try {
+      await (_pushService ?? NotificacionMovilService(api: _api))
+          .revocarDispositivo();
+    } catch (_) {
+      // El cierre de sesion local sigue disponible sin red.
+    }
+    await _pushService?.dispose();
+    _pushService = null;
+    _pushInicializado = null;
+    await _sesiones.limpiar();
+  }
 
   Future<String?> obtenerToken() async {
     final s = await _sesiones.leerValida();

@@ -46,6 +46,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _tieneSesion = ok);
     if (ok) {
       CarritoStore.instancia.cargar();
+      AuthService.asegurarPushActivo();
     }
   }
 

@@ -178,7 +178,13 @@ class DecartTryOnBridge(
         eliminarListeners()
         emit(mapOf("tipo" to "conectando"))
 
-        val c = DecartClient(context.applicationContext, DecartClientConfig(apiKey = token))
+        val c = DecartClient(
+            context.applicationContext,
+            DecartClientConfig(
+                apiKey = token,
+                baseUrl = "wss://api.decart.ai",
+            ),
+        )
         client = c
         observar(c)
 

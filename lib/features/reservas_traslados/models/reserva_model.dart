@@ -1,4 +1,4 @@
-// Modelos de reservas (contrato real POST/GET /reservas).
+// Modelos de reservas (contrato real POST/GET /reservas y adaptadores CU18).
 
 DateTime? _aFecha(dynamic v) {
   if (v == null) return null;
@@ -109,41 +109,56 @@ class TrasladoResumen {
 
 class Reserva {
   final String id;
+  final String? empresaId;
   final String clienteId;
   final String sucursalDestinoId;
   final String codigo;
   final String estado;
+  final int revision;
   final DateTime? creadaEn;
+  final DateTime? origenPlazoEn;
   final DateTime? fechaVisita;
   final DateTime? venceEn;
   final String? observacion;
+  final String? adelantoMonto;
+  final String? operacionSincronizacionId;
   final List<DetalleReserva> detalles;
   final List<TrasladoResumen> traslados;
 
   Reserva({
     required this.id,
+    this.empresaId,
     required this.clienteId,
     required this.sucursalDestinoId,
     required this.codigo,
     required this.estado,
+    this.revision = 1,
     this.creadaEn,
+    this.origenPlazoEn,
     this.fechaVisita,
     this.venceEn,
     this.observacion,
+    this.adelantoMonto,
+    this.operacionSincronizacionId,
     required this.detalles,
     required this.traslados,
   });
 
   factory Reserva.fromJson(Map<String, dynamic> j) => Reserva(
         id: '${j['id'] ?? ''}',
+        empresaId: j['empresa_id']?.toString(),
         clienteId: '${j['cliente_id'] ?? ''}',
         sucursalDestinoId: '${j['sucursal_destino_id'] ?? ''}',
         codigo: '${j['codigo'] ?? ''}',
         estado: '${j['estado'] ?? ''}',
+        revision: (j['revision'] as num?)?.toInt() ?? 1,
         creadaEn: _aFecha(j['fecha_creacion']),
+        origenPlazoEn: _aFecha(j['origen_plazo_en']),
         fechaVisita: _aFecha(j['fecha_visita']),
         venceEn: _aFecha(j['vence_en']),
         observacion: j['observacion'] as String?,
+        adelantoMonto: j['adelanto_monto']?.toString(),
+        operacionSincronizacionId: j['operacion_sincronizacion_id']?.toString(),
         detalles: ((j['detalles'] as List?) ?? [])
             .whereType<Map>()
             .map((e) => DetalleReserva.fromJson(e.cast<String, dynamic>()))
@@ -156,17 +171,31 @@ class Reserva {
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        if (empresaId != null) 'empresa_id': empresaId,
         'cliente_id': clienteId,
         'sucursal_destino_id': sucursalDestinoId,
         'codigo': codigo,
         'estado': estado,
+        'revision': revision,
         'fecha_creacion': creadaEn?.toIso8601String(),
+        if (origenPlazoEn != null)
+          'origen_plazo_en': origenPlazoEn?.toIso8601String(),
         'fecha_visita': fechaVisita?.toIso8601String(),
         'vence_en': venceEn?.toIso8601String(),
         'observacion': observacion,
+        if (adelantoMonto != null) 'adelanto_monto': adelantoMonto,
+        if (operacionSincronizacionId != null)
+          'operacion_sincronizacion_id': operacionSincronizacionId,
         'detalles': detalles.map((e) => e.toJson()).toList(),
         'traslados': traslados.map((e) => e.toJson()).toList(),
       };
+
+  bool get esOrigenOffline =>
+      operacionSincronizacionId != null &&
+      operacionSincronizacionId!.isNotEmpty;
+
+  bool get tieneAdelanto =>
+      adelantoMonto != null && adelantoMonto!.isNotEmpty;
 
   /// Texto comprensible del estado (sin códigos internos).
   String get estadoLegible {
@@ -296,12 +325,6 @@ class AccionesReserva {
 }
 
 /// Ítem local de la bolsa antes de confirmar.
-///
-/// El traslado usa dos estados independientes:
-/// - [solicitaTraslado]: el cliente marcó que la línea debe venir de otra
-///   sucursal. Controla la visibilidad del selector de origen.
-/// - [origenId]/[origenNombre]: origen elegido (puede estar vacío mientras
-///   el cliente aún no elige).
 class ItemBolsa {
   final String varianteId;
   final String nombrePrenda;
@@ -324,8 +347,6 @@ class ItemBolsa {
   });
 
   /// true si el usuario marcó que esta línea llegará por traslado.
-  /// No depende de que [origenId] ya esté seleccionado: el selector debe
-  /// permanecer visible mientras [solicitaTraslado] sea true.
   bool get necesitaTraslado => solicitaTraslado;
 
   /// Origen con valor real (no nulo ni vacío).
