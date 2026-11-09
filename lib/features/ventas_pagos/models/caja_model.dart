@@ -444,7 +444,8 @@ class VarianteCajaDisponibleModel {
                 json['precio']?.toString() ??
                 '0.0') ??
             0.0,
-        stockDisponible: (json['disponibilidad'] as num?)?.toInt() ??
+        stockDisponible: (json['disponible'] as num?)?.toInt() ??
+            (json['disponibilidad'] as num?)?.toInt() ??
             (json['stock_disponible'] as num?)?.toInt() ??
             0,
       );

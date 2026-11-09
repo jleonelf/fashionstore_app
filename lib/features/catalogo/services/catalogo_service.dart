@@ -74,7 +74,8 @@ class CatalogoService {
         '/variantes/$varianteId/disponibilidad',
         convertir: (j) => ((j as List?) ?? [])
             .whereType<Map>()
-            .map((e) => DisponibilidadSucursal.fromJson(e.cast<String, dynamic>()))
+            .map((e) =>
+                DisponibilidadSucursal.fromJson(e.cast<String, dynamic>()))
             .toList(),
       );
     } on ApiException {
@@ -175,57 +176,38 @@ class CatalogoService {
   }
 
   /// Lista las variantes disponibles para habilitación de cupos en Caja Móvil.
-  Future<List<VarianteCajaDisponibleModel>> listarVariantesParaCaja({String? sucursalId}) async {
-    // 1. Intentar online desde /variantes
-    try {
-      final variantes = await _api.get<List<Variante>>(
-        '/variantes',
-        query: {'solo_activas': 'true', 'limit': '100', 'offset': '0'},
-        convertir: (j) => ((j as List?) ?? [])
-            .whereType<Map>()
-            .map((e) => Variante.fromJson(e.cast<String, dynamic>()))
-            .toList(),
-      );
+  Future<List<VarianteCajaDisponibleModel>> listarVariantesParaCaja(
+      {String? sucursalId}) async {
+    if (sucursalId == null || sucursalId.isEmpty) return [];
 
-      if (variantes.isNotEmpty) {
-        final Map<String, String> nombresProductos = {};
-        try {
-          final prods = await listarProductos(filtros: FiltrosCatalogo(), limit: 100);
-          for (final p in prods) {
-            nombresProductos[p.id] = p.nombre;
-          }
-        } catch (_) {}
+    // Un turno nuevo requiere stock libre comprobado en la sucursal. El catalogo
+    // offline no autoriza cupos; el backend vuelve a bloquear y validar el stock.
+    final existencias = await _api.get<List<Map<String, dynamic>>>(
+      '/inventario/existencias',
+      query: {'sucursal_id': sucursalId},
+      convertir: (j) => ((j as List?) ?? [])
+          .whereType<Map>()
+          .map((e) => e.cast<String, dynamic>())
+          .toList(),
+    );
+    final variantes = await _api.get<List<Variante>>(
+      '/variantes',
+      query: {'solo_activas': 'true', 'limit': '100', 'offset': '0'},
+      convertir: (j) => ((j as List?) ?? [])
+          .whereType<Map>()
+          .map((e) => Variante.fromJson(e.cast<String, dynamic>()))
+          .toList(),
+    );
+    final idsActivos = variantes
+        .where((variante) => variante.activa)
+        .map((variante) => variante.id)
+        .toSet();
 
-        return variantes.map((v) {
-          final prodNombre = nombresProductos[v.productoId] ?? 'Prenda';
-          return VarianteCajaDisponibleModel(
-            varianteId: v.id,
-            productoId: v.productoId,
-            sku: v.sku,
-            productoNombre: prodNombre,
-            precioBob: v.precio,
-          );
-        }).toList();
-      }
-    } catch (_) {}
-
-    // 2. Si no hay conexión o falla la API, fallback a SQLite local
-    final rows = await _storage.listarVariantesParaCaja(sucursalId: sucursalId);
-    return rows.map((r) {
-      double precio = 0.0;
-      final pRaw = r['precio_bob'];
-      if (pRaw != null) {
-        precio = double.tryParse(pRaw.toString()) ?? 0.0;
-      }
-      return VarianteCajaDisponibleModel(
-        varianteId: '${r['variante_id']}',
-        productoId: r['producto_id']?.toString(),
-        sku: '${r['sku'] ?? 'SKU'}',
-        productoNombre: r['producto_nombre']?.toString() ?? 'Prenda',
-        talla: r['talla']?.toString(),
-        color: r['color']?.toString(),
-        precioBob: precio,
-      );
-    }).toList();
+    return existencias
+        .where((fila) =>
+            idsActivos.contains(fila['variante_id']?.toString()) &&
+            ((fila['disponible'] as num?)?.toInt() ?? 0) > 0)
+        .map(VarianteCajaDisponibleModel.fromJson)
+        .toList();
   }
 }

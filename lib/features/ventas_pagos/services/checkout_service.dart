@@ -25,6 +25,16 @@ class CheckoutService {
     );
   }
 
+  /// Consulta el pedido durable creado por CU21. El cliente nunca transforma
+  /// este identificador en un venta_id: CU22 cobra el recurso PEDIDO.
+  Future<CheckoutRespuesta> obtenerPedido(String pedidoId) {
+    return _api.get<CheckoutRespuesta>(
+      '/compras/$pedidoId',
+      convertir: (j) =>
+          CheckoutRespuesta.fromJson((j as Map).cast<String, dynamic>()),
+    );
+  }
+
   Future<VentaDigital> obtenerVenta(String ventaId) {
     return _api.get<VentaDigital>(
       '/ventas/$ventaId',

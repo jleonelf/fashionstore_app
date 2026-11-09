@@ -656,6 +656,7 @@ class _BolsaScreenState extends State<BolsaScreen> {
                         DropdownButtonFormField<String>(
                           key: const ValueKey('bolsa-destino'),
                           initialValue: _destinoId,
+                          isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Sucursal de destino',
                             border: OutlineInputBorder(),

@@ -56,7 +56,7 @@ class _CajaOfflineScreenState extends State<CajaOfflineScreen> {
   final _codigoCajaCtrl = TextEditingController(text: 'CAJA-MOVIL-01');
   final Map<String, int> _cuposSolicitados = {};
   VarianteCajaDisponibleModel? _varianteSelParaCupo;
-  int _cantidadCupo = 5;
+  int _cantidadCupo = 1;
 
   // Formulario Venta Offline
   String? _cupoSeleccionadoId;
@@ -71,6 +71,13 @@ class _CajaOfflineScreenState extends State<CajaOfflineScreen> {
 
   set _cupoSeleccionado(CupoRespuestaModel? cupo) {
     _cupoSeleccionadoId = cupo?.varianteId;
+  }
+
+  int _stockRestanteParaCupo(VarianteCajaDisponibleModel? variante) {
+    if (variante == null) return 0;
+    return (variante.stockDisponible -
+            (_cuposSolicitados[variante.varianteId] ?? 0))
+        .clamp(0, variante.stockDisponible);
   }
 
   int _cantidadVenta = 1;
@@ -344,6 +351,8 @@ class _CajaOfflineScreenState extends State<CajaOfflineScreen> {
           _cargando = false;
           _errorEstadisticas = null;
         });
+        await _recargarVariantesCaja(turno.sucursalId);
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text(
@@ -399,6 +408,34 @@ class _CajaOfflineScreenState extends State<CajaOfflineScreen> {
       if (mounted) {
         setState(() => _cargandoVariantes = false);
       }
+    }
+  }
+
+  Future<void> _recargarVariantesCaja(String sucursalId) async {
+    if (sucursalId.isEmpty) return;
+    if (mounted) setState(() => _cargandoVariantes = true);
+    try {
+      final variantes = await _catalogoSrv.listarVariantesParaCaja(
+        sucursalId: sucursalId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _variantesDisponibles = variantes;
+        if (!variantes.any(
+          (variante) => variante.varianteId == _varianteSelParaCupo?.varianteId,
+        )) {
+          _varianteSelParaCupo = variantes.firstOrNull;
+        }
+        _cantidadCupo = 1;
+        _cargandoVariantes = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _variantesDisponibles = [];
+        _varianteSelParaCupo = null;
+        _cargandoVariantes = false;
+      });
     }
   }
 
@@ -751,6 +788,11 @@ class _CajaOfflineScreenState extends State<CajaOfflineScreen> {
         _arqueoCtrl.clear();
       });
 
+      if (cerrado.estado == 'CERRADO') {
+        await _recargarVariantesCaja(t.sucursalId);
+        if (!mounted) return;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -879,7 +921,7 @@ class _CajaOfflineScreenState extends State<CajaOfflineScreen> {
                         border: Border.all(color: Colors.grey.shade300),
                       ),
                       child: const Text(
-                        'No hay prendas disponibles en el catálogo para la sucursal seleccionada.',
+                        'No hay prendas con disponibilidad confirmada en esta sucursal. Con?ctate y vuelve a cargar.',
                         style: TextStyle(color: Colors.grey),
                       ),
                     )
@@ -903,33 +945,58 @@ class _CajaOfflineScreenState extends State<CajaOfflineScreen> {
                             ),
                           ),
                       ],
-                      onChanged: (v) =>
-                          setState(() => _varianteSelParaCupo = v),
+                      onChanged: (v) => setState(() {
+                        _varianteSelParaCupo = v;
+                        _cantidadCupo = 1;
+                      }),
                     ),
                     const SizedBox(height: 10),
-                    Row(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Text('Cantidad: ',
-                            style: TextStyle(fontWeight: FontWeight.w600)),
-                        IconButton.outlined(
-                          icon: const Icon(Icons.remove),
-                          onPressed: _cantidadCupo > 1
-                              ? () => setState(() => _cantidadCupo--)
-                              : null,
+                        if (_varianteSelParaCupo != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              'Disponible en esta sucursal: ${_varianteSelParaCupo!.stockDisponible} un. '
+                              '(${_stockRestanteParaCupo(_varianteSelParaCupo)} sin asignar)',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        Row(
+                          children: [
+                            const Text('Cantidad: ',
+                                style: TextStyle(fontWeight: FontWeight.w600)),
+                            IconButton.outlined(
+                              icon: const Icon(Icons.remove),
+                              onPressed: _cantidadCupo > 1
+                                  ? () => setState(() => _cantidadCupo--)
+                                  : null,
+                            ),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 10),
+                              child: Text('$_cantidadCupo',
+                                  style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold)),
+                            ),
+                            IconButton.outlined(
+                              icon: const Icon(Icons.add),
+                              onPressed: _cantidadCupo <
+                                      _stockRestanteParaCupo(
+                                          _varianteSelParaCupo)
+                                  ? () => setState(() => _cantidadCupo++)
+                                  : null,
+                            ),
+                          ],
                         ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          child: Text('$_cantidadCupo',
-                              style: const TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.bold)),
-                        ),
-                        IconButton.outlined(
-                          icon: const Icon(Icons.add),
-                          onPressed: () => setState(() => _cantidadCupo++),
-                        ),
-                        const Spacer(),
+                        const SizedBox(height: 8),
                         ElevatedButton.icon(
-                          onPressed: _varianteSelParaCupo == null
+                          onPressed: _varianteSelParaCupo == null ||
+                                  _cantidadCupo >
+                                      _stockRestanteParaCupo(
+                                          _varianteSelParaCupo)
                               ? null
                               : () {
                                   setState(() {
@@ -938,7 +1005,7 @@ class _CajaOfflineScreenState extends State<CajaOfflineScreen> {
                                     _cuposSolicitados[varId] =
                                         (_cuposSolicitados[varId] ?? 0) +
                                             _cantidadCupo;
-                                    _cantidadCupo = 5;
+                                    _cantidadCupo = 1;
                                   });
                                 },
                           icon: const Icon(Icons.add),
@@ -1191,6 +1258,7 @@ class _CajaOfflineScreenState extends State<CajaOfflineScreen> {
                   const SizedBox(height: 12),
                   if (t.cupos.isNotEmpty) ...[
                     DropdownButtonFormField<String>(
+                      isExpanded: true,
                       key: ValueKey(
                         'cupo_venta_${t.turnoId}_${t.cupos.map((c) => c.varianteId).join("_")}',
                       ),
