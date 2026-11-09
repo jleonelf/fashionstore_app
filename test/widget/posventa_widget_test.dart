@@ -15,7 +15,7 @@ class FakeApiClientWidget extends ApiClient {
     Map<String, String>? query,
     required T Function(dynamic) convertir,
   }) async {
-    if (ruta == '/posventa/saldos/mio') {
+    if (ruta == '/saldos/mio') {
       return convertir({
         'cliente_id': 'cli-101',
         'empresa_id': 'emp-202',
@@ -33,37 +33,38 @@ class FakeApiClientWidget extends ApiClient {
           }
         ],
       });
-    } else if (ruta == '/posventa/devoluciones/mias') {
+    } else if (ruta == '/devoluciones/mias') {
       return convertir([
         {
           'id': 'd-1',
           'venta_id': 'v-1',
           'estado': 'EN_CUSTODIA',
-          'motivo': 'Talla incorrecta',
+          'motivo_codigo': 'TALLA',
+          'motivo_descripcion': 'Talla incorrecta',
           'sucursal_id': 's-1',
-          'creada_en': '2026-11-04T10:00:00Z',
-          'lineas': [],
+          'solicitada_en': '2026-11-04T10:00:00Z',
+          'detalles': [],
         }
       ]);
-    } else if (ruta == '/posventa/cambios/mios') {
+    } else if (ruta == '/cambios/mios') {
       return convertir([
         {
-          'id': 'c-1',
+          'cambio_id': 'c-1',
           'venta_id': 'v-2',
           'estado': 'REGISTRADO',
           'diferencia_bob': 20.0,
           'direccion_diferencia': 'FAVOR_EMPRESA',
-          'nota_vigencia_hasta': '2026-11-11T10:00:00Z',
-          'creada_en': '2026-11-04T10:00:00Z',
+          'vence_espera_en': '2026-11-11T10:00:00Z',
+          'creado_en': '2026-11-04T10:00:00Z',
         }
       ]);
-    } else if (ruta == '/posventa/reembolsos/mios') {
+    } else if (ruta == '/reembolsos/mios') {
       return convertir([
         {
           'id': 'r-1',
           'origen_tipo': 'DEVOLUCION_STOCK',
           'estado': 'EJECUTADO',
-          'monto_total_bob': 150.0,
+          'monto_bob': 150.0,
           'creada_en': '2026-11-04T10:00:00Z',
         }
       ]);
@@ -73,7 +74,8 @@ class FakeApiClientWidget extends ApiClient {
 }
 
 void main() {
-  testWidgets('PosventaScreen renderiza pestañas y muestra saldo disponible', (tester) async {
+  testWidgets('PosventaScreen renderiza pestañas y muestra saldo disponible',
+      (tester) async {
     final srv = PosventaService(api: FakeApiClientWidget());
 
     await tester.pumpWidget(
@@ -114,7 +116,9 @@ void main() {
     expect(find.text('Bs 150.00'), findsOneWidget);
   });
 
-  testWidgets('CuentaScreen permite acceso directo a PosventaScreen sin quedar huerfana', (tester) async {
+  testWidgets(
+      'CuentaScreen permite acceso directo a PosventaScreen sin quedar huerfana',
+      (tester) async {
     SharedPreferences.setMockInitialValues({});
     final usuario = ClientePerfilModel.fromJson({
       'id': 'usr-1',
@@ -149,7 +153,8 @@ void main() {
     expect(find.text('Mi Cuenta y Posventa'), findsOneWidget);
   });
 
-  testWidgets('CuentaScreen en modo invitado expone Posventa y Devoluciones', (tester) async {
+  testWidgets('CuentaScreen en modo invitado expone Posventa y Devoluciones',
+      (tester) async {
     SharedPreferences.setMockInitialValues({});
 
     await tester.pumpWidget(

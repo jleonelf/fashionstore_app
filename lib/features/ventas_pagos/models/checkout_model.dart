@@ -48,31 +48,46 @@ class CheckoutCrear {
 }
 
 class CheckoutRespuesta {
+  /// ID del pedido durable CU21. Vacío solo al hablar con un backend CU14 legado.
+  final String pedidoId;
   final String ventaId;
   final String numero;
   final String estado;
   final double total;
+  final String estadoPago;
+  final String estadoCumplimiento;
+  final int ofertaRevision;
   final DateTime? expiraEn;
   final String pedidoEntregaId;
 
   CheckoutRespuesta({
-    required this.ventaId,
-    required this.numero,
-    required this.estado,
-    required this.total,
+    this.pedidoId = '',
+    this.ventaId = '',
+    this.numero = '',
+    this.estado = '',
+    this.total = 0,
+    this.estadoPago = '',
+    this.estadoCumplimiento = '',
+    this.ofertaRevision = 1,
     this.expiraEn,
-    required this.pedidoEntregaId,
+    this.pedidoEntregaId = '',
   });
 
   factory CheckoutRespuesta.fromJson(Map<String, dynamic> j) =>
       CheckoutRespuesta(
+        pedidoId: '${j['pedido_id'] ?? ''}',
         ventaId: '${j['venta_id'] ?? ''}',
-        numero: '${j['numero'] ?? ''}',
+        numero: '${j['numero'] ?? j['pedido_id'] ?? ''}',
         estado: '${j['estado'] ?? ''}',
-        total: _aDouble(j['total']),
-        expiraEn: _aFecha(j['expira_en']),
+        total: _aDouble(j['total_bob'] ?? j['total']),
+        estadoPago: '${j['estado_pago'] ?? ''}',
+        estadoCumplimiento: '${j['estado_cumplimiento'] ?? ''}',
+        ofertaRevision: (j['oferta_revision'] as num?)?.toInt() ?? 1,
+        expiraEn: _aFecha(j['vigente_hasta'] ?? j['expira_en']),
         pedidoEntregaId: '${j['pedido_entrega_id'] ?? ''}',
       );
+
+  bool get esPedidoDurable => pedidoId.isNotEmpty;
 }
 
 class DetalleVentaDigital {

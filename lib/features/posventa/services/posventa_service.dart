@@ -15,7 +15,7 @@ class PosventaService {
   // ---------------- CU09: Saldo ----------------
   Future<SaldoClienteModel> obtenerMiSaldo() {
     return _api.get<SaldoClienteModel>(
-      '/posventa/saldos/mio',
+      '/saldos/mio',
       convertir: (j) =>
           SaldoClienteModel.fromJson((j as Map).cast<String, dynamic>()),
     );
@@ -24,7 +24,7 @@ class PosventaService {
   // ---------------- CU20: Devoluciones ----------------
   Future<List<DevolucionModel>> obtenerMisDevoluciones() {
     return _api.get<List<DevolucionModel>>(
-      '/posventa/devoluciones/mias',
+      '/devoluciones/mias',
       convertir: (j) {
         if (j is List) {
           return j
@@ -38,18 +38,20 @@ class PosventaService {
 
   Future<DevolucionModel> solicitarDevolucion({
     required String ventaId,
-    required String sucursalId,
     required String motivo,
     required List<Map<String, dynamic>> lineas,
+    String motivoCodigo = 'OTRO',
+    List<String> evidenciaRefs = const [],
     String? claveIdempotencia,
   }) {
     return _api.post<DevolucionModel>(
-      '/posventa/devoluciones/solicitudes',
+      '/devoluciones/solicitudes',
       cuerpo: {
         'venta_id': ventaId,
-        'sucursal_id': sucursalId,
-        'motivo': motivo,
+        'motivo_codigo': motivoCodigo,
+        'motivo_descripcion': motivo,
         'lineas': lineas,
+        'evidencia_refs': evidenciaRefs,
       },
       idempotencyKey: claveIdempotencia ?? const Uuid().v4(),
       convertir: (j) =>
@@ -60,7 +62,7 @@ class PosventaService {
   // ---------------- CU08: Cambios ----------------
   Future<List<CambioModel>> obtenerMisCambios() {
     return _api.get<List<CambioModel>>(
-      '/posventa/cambios/mios',
+      '/cambios/mios',
       convertir: (j) {
         if (j is List) {
           return j
@@ -75,17 +77,25 @@ class PosventaService {
   Future<CambioModel> solicitarCambio({
     required String ventaId,
     required String sucursalId,
-    required String motivo,
-    required List<Map<String, dynamic>> lineas,
+    required String motivoCodigo,
+    String? motivoDescripcion,
+    required List<Map<String, dynamic>> lineasOriginales,
+    List<Map<String, dynamic>> reemplazos = const [],
+    String modalidadReemplazo = 'RECOJO',
+    String? direccion,
     String? claveIdempotencia,
   }) {
     return _api.post<CambioModel>(
-      '/posventa/cambios',
+      '/cambios',
       cuerpo: {
         'venta_id': ventaId,
         'sucursal_id': sucursalId,
-        'motivo': motivo,
-        'lineas': lineas,
+        'motivo_codigo': motivoCodigo,
+        if (motivoDescripcion != null) 'motivo_descripcion': motivoDescripcion,
+        'lineas_originales': lineasOriginales,
+        'reemplazos': reemplazos,
+        'modalidad_reemplazo': modalidadReemplazo,
+        if (direccion != null) 'direccion': direccion,
       },
       idempotencyKey: claveIdempotencia ?? const Uuid().v4(),
       convertir: (j) => CambioModel.fromJson((j as Map).cast<String, dynamic>()),
@@ -94,15 +104,17 @@ class PosventaService {
 
   Future<Map<String, dynamic>> resolverDiferenciaCambio({
     required String cambioId,
-    required String accion, // ACEPTAR_DIFERENCIA_CERO | SALDO_A_FAVOR | REEMBOLSO | PAGO_ADICIONAL
-    String? metodoPago,
+    required String destinoDiferencia, // SALDO | REEMBOLSO | PAGO_CLIENTE | SIN_DIFERENCIA
+    double? saldoBob,
+    double? reembolsoBob,
     String? claveIdempotencia,
   }) {
     return _api.post<Map<String, dynamic>>(
-      '/posventa/cambios/$cambioId/resolver-diferencia',
+      '/cambios/$cambioId/resolver-diferencia',
       cuerpo: {
-        'accion': accion,
-        if (metodoPago != null) 'metodo_pago': metodoPago,
+        'destino_diferencia': destinoDiferencia,
+        if (saldoBob != null) 'saldo_bob': saldoBob,
+        if (reembolsoBob != null) 'reembolso_bob': reembolsoBob,
       },
       idempotencyKey: claveIdempotencia ?? const Uuid().v4(),
       convertir: (j) => (j as Map).cast<String, dynamic>(),
@@ -112,7 +124,7 @@ class PosventaService {
   // ---------------- CU27: Reembolsos ----------------
   Future<List<ReembolsoModel>> obtenerMisReembolsos() {
     return _api.get<List<ReembolsoModel>>(
-      '/posventa/reembolsos/mios',
+      '/reembolsos/mios',
       convertir: (j) {
         if (j is List) {
           return j

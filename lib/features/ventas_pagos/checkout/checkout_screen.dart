@@ -26,6 +26,7 @@ import '../../../core/ui/componentes_ciclo3.dart';
 import '../../reservas_traslados/services/sincronizacion_offline_service.dart';
 import '../carrito/carrito_store.dart';
 import '../pago/pago_screen.dart';
+import '../pago/pago_pedido_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final CarritoService? servicioCarrito;
@@ -261,6 +262,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
       await CarritoStore.instancia.limpiarReferenciaLocal();
       if (!mounted) return;
+      if (resp.esPedidoDurable) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PagoPedidoScreen(pedidoId: resp.pedidoId),
+          ),
+        );
+        return;
+      }
+      if (resp.ventaId.isEmpty) {
+        throw StateError('El checkout no devolvió pedido_id ni venta_id.');
+      }
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => PagoScreen(ventaId: resp.ventaId)),

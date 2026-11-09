@@ -60,7 +60,8 @@ void main() {
       await storage.close();
     });
 
-    testWidgets('Muestra formulario de habilitación cuando no hay turno activo', (tester) async {
+    testWidgets('Muestra formulario de habilitación cuando no hay turno activo',
+        (tester) async {
       final mockHttp = MockClient((request) async {
         if (request.url.path.contains('/sucursales')) {
           return http.Response(
@@ -78,13 +79,15 @@ void main() {
           );
         }
         if (request.url.path.contains('/cajas/turnos/activo')) {
-          return http.Response('null', 200, headers: {'content-type': 'application/json'});
+          return http.Response('null', 200,
+              headers: {'content-type': 'application/json'});
         }
         return http.Response('Not found', 404);
       });
 
       final api = ApiClient(httpClient: mockHttp, sesiones: sessionManager);
-      final cajaSrv = CajaService(api: api, sesiones: sessionManager, storage: storage);
+      final cajaSrv =
+          CajaService(api: api, sesiones: sessionManager, storage: storage);
       final sucursalSrv = SucursalService(api: api);
 
       await tester.pumpWidget(
@@ -102,12 +105,15 @@ void main() {
       expect(find.text('Código de Caja / Dispositivo'), findsOneWidget);
     });
 
-    testWidgets('Con turno activo: permite cobrar en efectivo, emitir comprobante local y ver banner de pendientes', (tester) async {
+    testWidgets(
+        'Con turno activo: permite cobrar en efectivo, emitir comprobante local y ver banner de pendientes',
+        (tester) async {
       final ahora = DateTime.now().toUtc();
       final vence = ahora.add(const Duration(hours: 8));
 
       final mockHttp = MockClient((request) async {
-        return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        return http.Response('[]', 200,
+            headers: {'content-type': 'application/json'});
       });
       final api = ApiClient(httpClient: mockHttp, sesiones: sessionManager);
       final sucursalSrv = SucursalService(api: api);
@@ -137,7 +143,8 @@ void main() {
         ],
       );
 
-      await cajaSrv.fijarYPersistirTurnoLocal(turno, empresaId: testEmpresaId, usuarioId: testUsuarioId);
+      await cajaSrv.fijarYPersistirTurnoLocal(turno,
+          empresaId: testEmpresaId, usuarioId: testUsuarioId);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -153,7 +160,14 @@ void main() {
       expect(find.text('CAJA-MOVIL-01'), findsOneWidget);
       expect(find.text('ABIERTO'), findsOneWidget);
       expect(find.text('Cobrar Venta en Efectivo (Offline)'), findsOneWidget);
-      expect(find.text('Cobrar en Efectivo y Emitir Comprobante'), findsOneWidget);
+      expect(
+          find.text('Cobrar en Efectivo y Emitir Comprobante'), findsOneWidget);
+      final selectorPrenda = find.byKey(
+        const ValueKey('cupo_venta_${testTurnoId}_$testVarianteId'),
+      );
+      await tester.ensureVisible(selectorPrenda);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
 
       // Ingresar efectivo recibido
       await tester.enterText(find.byType(TextField).first, '200');
@@ -174,12 +188,15 @@ void main() {
       await tester.pumpAndSettle();
 
       // La UI debe mostrar el banner de 1 venta pendiente
-      expect(find.textContaining('1 venta(s) pendientes de sincronizar'), findsOneWidget);
+      expect(find.textContaining('1 venta(s) pendientes de sincronizar'),
+          findsOneWidget);
       expect(find.text('Sincronizar'), findsOneWidget);
       expect(find.text('Disp: 4 / 5 (Bs 180.00)'), findsOneWidget);
     });
 
-    testWidgets('Cierre de turno con arqueo devuelve cupos y limpia el turno activo', (tester) async {
+    testWidgets(
+        'Cierre de turno con arqueo devuelve cupos y limpia el turno activo',
+        (tester) async {
       final ahora = DateTime.now().toUtc();
       final vence = ahora.add(const Duration(hours: 8));
 
@@ -204,11 +221,13 @@ void main() {
             headers: {'content-type': 'application/json'},
           );
         }
-        return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        return http.Response('[]', 200,
+            headers: {'content-type': 'application/json'});
       });
 
       final api = ApiClient(httpClient: mockHttp, sesiones: sessionManager);
-      final cajaSrv = CajaService(api: api, sesiones: sessionManager, storage: storage);
+      final cajaSrv =
+          CajaService(api: api, sesiones: sessionManager, storage: storage);
       final sucursalSrv = SucursalService(api: api);
 
       final turno = TurnoHabilitacionModel(
@@ -235,7 +254,8 @@ void main() {
         ],
       );
 
-      await cajaSrv.fijarYPersistirTurnoLocal(turno, empresaId: testEmpresaId, usuarioId: testUsuarioId);
+      await cajaSrv.fijarYPersistirTurnoLocal(turno,
+          empresaId: testEmpresaId, usuarioId: testUsuarioId);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -250,7 +270,8 @@ void main() {
       expect(find.text('Cierre de Turno y Arqueo'), findsWidgets);
 
       // Ingresar arqueo
-      final arqueoFinder = find.widgetWithText(TextField, 'Arqueo de Efectivo Final en Caja (Bs)');
+      final arqueoFinder = find.widgetWithText(
+          TextField, 'Arqueo de Efectivo Final en Caja (Bs)');
       await tester.ensureVisible(arqueoFinder);
       await tester.enterText(arqueoFinder, '500');
       await tester.pumpAndSettle();
@@ -273,17 +294,21 @@ void main() {
       expect(cajaSrv.turnoActivoLocal, isNull);
     });
 
-    testWidgets('CU07: Error al leer estadísticas locales en pantalla muestra advertencia y bloquea el botón de cierre', (tester) async {
+    testWidgets(
+        'CU07: Error al leer estadísticas locales en pantalla muestra advertencia y bloquea el botón de cierre',
+        (tester) async {
       final ahora = DateTime.now().toUtc();
       final vence = ahora.add(const Duration(hours: 8));
 
       final failingStorage = FailingStatsStorage();
       final mockHttp = MockClient((request) async {
-        return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        return http.Response('[]', 200,
+            headers: {'content-type': 'application/json'});
       });
 
       final api = ApiClient(httpClient: mockHttp, sesiones: sessionManager);
-      final cajaSrv = CajaService(api: api, sesiones: sessionManager, storage: failingStorage);
+      final cajaSrv = CajaService(
+          api: api, sesiones: sessionManager, storage: failingStorage);
       final sucursalSrv = SucursalService(api: api);
 
       final turno = TurnoHabilitacionModel(
@@ -323,10 +348,12 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verificar que muestra advertencia
-      expect(find.textContaining('Cierre de turno bloqueado por seguridad'), findsOneWidget);
+      expect(find.textContaining('Cierre de turno bloqueado por seguridad'),
+          findsOneWidget);
 
       // Verificar que el botón de cierre está deshabilitado (onPressed == null)
-      final btnFinder = find.widgetWithText(OutlinedButton, 'Cerrar Turno y Devolver Cupos');
+      final btnFinder =
+          find.widgetWithText(OutlinedButton, 'Cerrar Turno y Devolver Cupos');
       expect(btnFinder, findsOneWidget);
       final OutlinedButton btn = tester.widget(btnFinder);
       expect(btn.onPressed, isNull);

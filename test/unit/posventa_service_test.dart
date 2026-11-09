@@ -9,7 +9,7 @@ class FakeApiClientPosventa extends ApiClient {
     Map<String, String>? query,
     required T Function(dynamic) convertir,
   }) async {
-    if (ruta == '/posventa/saldos/mio') {
+    if (ruta == '/saldos/mio') {
       return convertir({
         'cliente_id': 'cli-101',
         'empresa_id': 'emp-202',
@@ -27,37 +27,38 @@ class FakeApiClientPosventa extends ApiClient {
           }
         ],
       });
-    } else if (ruta == '/posventa/devoluciones/mias') {
+    } else if (ruta == '/devoluciones/mias') {
       return convertir([
         {
           'id': 'dev-1',
           'venta_id': 'v-10',
           'estado': 'EN_CUSTODIA',
-          'motivo': 'Talla no adecuada',
+          'motivo_codigo': 'TALLA',
+          'motivo_descripcion': 'Talla no adecuada',
           'sucursal_id': 'suc-1',
-          'creada_en': '2026-11-04T10:00:00Z',
-          'lineas': [],
+          'solicitada_en': '2026-11-04T10:00:00Z',
+          'detalles': [],
         }
       ]);
-    } else if (ruta == '/posventa/cambios/mios') {
+    } else if (ruta == '/cambios/mios') {
       return convertir([
         {
-          'id': 'cam-1',
+          'cambio_id': 'cam-1',
           'venta_id': 'v-20',
           'estado': 'REGISTRADO',
           'diferencia_bob': 0.0,
           'direccion_diferencia': 'CERO',
-          'nota_vigencia_hasta': '2026-11-11T10:00:00Z',
-          'creada_en': '2026-11-04T10:00:00Z',
+          'vence_espera_en': '2026-11-11T10:00:00Z',
+          'creado_en': '2026-11-04T10:00:00Z',
         }
       ]);
-    } else if (ruta == '/posventa/reembolsos/mios') {
+    } else if (ruta == '/reembolsos/mios') {
       return convertir([
         {
           'id': 'rem-1',
           'origen_tipo': 'COMPRA_DIFERIDA_SIN_STOCK',
           'estado': 'PENDIENTE_AUTORIZACION',
-          'monto_total_bob': 300.0,
+          'monto_bob': 300.0,
           'creada_en': '2026-11-04T10:00:00Z',
         }
       ]);
@@ -74,31 +75,33 @@ class FakeApiClientPosventa extends ApiClient {
     required T Function(dynamic) convertir,
   }) async {
     final map = (cuerpo as Map?) ?? {};
-    if (ruta == '/posventa/devoluciones/solicitudes') {
+    if (ruta == '/devoluciones/solicitudes') {
       return convertir({
         'id': 'dev-new',
         'venta_id': map['venta_id'],
         'estado': 'EN_CUSTODIA',
-        'motivo': map['motivo'],
-        'sucursal_id': map['sucursal_id'],
-        'creada_en': '2026-11-04T14:00:00Z',
-        'lineas': map['lineas'],
+        'motivo_codigo': map['motivo_codigo'],
+        'motivo_descripcion': map['motivo_descripcion'],
+        'sucursal_id': 'suc-1',
+        'solicitada_en': '2026-11-04T14:00:00Z',
+        'detalles': map['lineas'],
       });
-    } else if (ruta == '/posventa/cambios') {
+    } else if (ruta == '/cambios') {
       return convertir({
-        'id': 'cam-new',
+        'cambio_id': 'cam-new',
         'venta_id': map['venta_id'],
         'estado': 'REGISTRADO',
+        'motivo_codigo': map['motivo_codigo'],
         'diferencia_bob': 0.0,
         'direccion_diferencia': 'CERO',
-        'nota_vigencia_hasta': '2026-11-11T14:00:00Z',
-        'creada_en': '2026-11-04T14:00:00Z',
+        'vence_espera_en': '2026-11-11T14:00:00Z',
+        'creado_en': '2026-11-04T14:00:00Z',
       });
     } else if (ruta.endsWith('/resolver-diferencia')) {
       return convertir({
         'cambio_id': 'cam-1',
         'estado': 'RESUELTO',
-        'accion': map['accion'],
+        'destino_diferencia': map['destino_diferencia'],
       });
     }
     throw UnimplementedError('Ruta POST no mockeada: $ruta');
@@ -128,9 +131,9 @@ void main() {
 
       final dev = await service.solicitarDevolucion(
         ventaId: 'v-10',
-        sucursalId: 'suc-1',
         motivo: 'Prenda con falla de costura',
-        lineas: [{'variante_id': 'var-1', 'cantidad': 1}],
+        lineas: [{'detalle_venta_id': 'det-1', 'cantidad': 1}],
+        motivoCodigo: 'DEFECTO_FABRICACION',
       );
       expect(dev.id, equals('dev-new'));
       expect(dev.estado, equals('EN_CUSTODIA'));
@@ -144,14 +147,16 @@ void main() {
       final nuevo = await service.solicitarCambio(
         ventaId: 'v-20',
         sucursalId: 'suc-1',
-        motivo: 'Cambio de talla por L',
-        lineas: [{'variante_original_id': 'v-orig', 'variante_nueva_id': 'v-new', 'cantidad': 1}],
+        motivoCodigo: 'TALLA',
+        motivoDescripcion: 'Cambio de talla por L',
+        lineasOriginales: [{'detalle_venta_id': 'det-1', 'cantidad': 1}],
+        reemplazos: [{'variante_id': 'v-new', 'cantidad': 1}],
       );
       expect(nuevo.id, equals('cam-new'));
 
       final res = await service.resolverDiferenciaCambio(
         cambioId: 'cam-1',
-        accion: 'ACEPTAR_DIFERENCIA_CERO',
+        destinoDiferencia: 'SIN_DIFERENCIA',
       );
       expect(res['estado'], equals('RESUELTO'));
     });

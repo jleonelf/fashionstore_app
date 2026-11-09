@@ -100,6 +100,24 @@ class PagoService {
     );
   }
 
+  /// Recupera el PaymentIntent existente de una orden sin crear otro cargo.
+  Future<Map<String, dynamic>> reanudarOrdenPago(String ordenId) {
+    return _api.post<Map<String, dynamic>>(
+      '/pagos/stripe/ordenes/$ordenId/reanudar',
+      cuerpo: const {},
+      convertir: (j) => (j as Map).cast<String, dynamic>(),
+    );
+  }
+
+  /// Pide al backend consultar Stripe y aplicar la transición durable del pago.
+  Future<Map<String, dynamic>> confirmarOrdenPago(String ordenId) {
+    return _api.post<Map<String, dynamic>>(
+      '/pagos/stripe/ordenes/$ordenId/confirmar',
+      cuerpo: const {},
+      convertir: (j) => (j as Map).cast<String, dynamic>(),
+    );
+  }
+
   /// Continúa una orden de pago tras confirmación de acción 3DS (CU22).
   Future<Map<String, dynamic>> continuarAccionOrden({
     required String ordenId,

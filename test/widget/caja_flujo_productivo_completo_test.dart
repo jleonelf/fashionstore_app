@@ -62,7 +62,9 @@ void main() {
       await storage.close();
     });
 
-    testWidgets('Bloqueo 1 & 5: CuentaScreen abre Caja Móvil con ApiClient autenticado y textos limpios', (tester) async {
+    testWidgets(
+        'Bloqueo 1 & 5: CuentaScreen abre Caja Móvil con ApiClient autenticado y textos limpios',
+        (tester) async {
       final mockHttp = MockClient((request) async {
         if (request.url.path.contains('/empresas/mi-plan')) {
           return http.Response(
@@ -80,13 +82,16 @@ void main() {
           );
         }
         if (request.url.path.contains('/cajas/turnos/activo')) {
-          return http.Response('null', 200, headers: {'content-type': 'application/json'});
+          return http.Response('null', 200,
+              headers: {'content-type': 'application/json'});
         }
         if (request.url.path.contains('/sucursales')) {
-          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+          return http.Response('[]', 200,
+              headers: {'content-type': 'application/json'});
         }
         if (request.url.path.contains('/variantes')) {
-          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+          return http.Response('[]', 200,
+              headers: {'content-type': 'application/json'});
         }
         return http.Response('Not found', 404);
       });
@@ -119,7 +124,9 @@ void main() {
       expect(find.text('Habilitar Turno de Caja'), findsOneWidget);
     });
 
-    testWidgets('Bloqueo 2: Habilitar turno requiere variantes reales y no acepta ficticias ni vacías', (tester) async {
+    testWidgets(
+        'Bloqueo 2: Habilitar turno requiere variantes reales y no acepta ficticias ni vacías',
+        (tester) async {
       final mockHttp = MockClient((request) async {
         if (request.url.path.contains('/sucursales')) {
           return http.Response(
@@ -137,7 +144,24 @@ void main() {
           );
         }
         if (request.url.path.contains('/cajas/turnos/activo')) {
-          return http.Response('null', 200, headers: {'content-type': 'application/json'});
+          return http.Response('null', 200,
+              headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path.contains('/inventario/existencias')) {
+          return http.Response(
+            jsonEncode([
+              {
+                'variante_id': testVarianteRealId,
+                'producto_id': 'prod-vestido-01',
+                'sku': 'SKU-VES-ROJO-M',
+                'producto_nombre': 'Vestido Fiesta Rojo',
+                'disponible': 5,
+                'precio': 220.0,
+              }
+            ]),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
         }
         if (request.url.path.contains('/variantes')) {
           return http.Response(
@@ -175,7 +199,8 @@ void main() {
       });
 
       final api = ApiClient(httpClient: mockHttp, sesiones: sessionManager);
-      final cajaSrv = CajaService(api: api, sesiones: sessionManager, storage: storage);
+      final cajaSrv =
+          CajaService(api: api, sesiones: sessionManager, storage: storage);
       final sucursalSrv = SucursalService(api: api);
       final catalogoSrv = CatalogoService(api: api, storage: storage);
 
@@ -191,10 +216,14 @@ void main() {
       await tester.pumpAndSettle();
 
       // Debe mostrar mensaje de error si no hay prendas agregadas al turno
-      expect(find.text('Debes agregar al menos una prenda con cupo para habilitar el turno.'), findsOneWidget);
+      expect(
+          find.text(
+              'Debes agregar al menos una prenda con cupo para habilitar el turno.'),
+          findsOneWidget);
 
       // El botón Habilitar Turno Online debe estar deshabilitado cuando _cuposSolicitados está vacío
-      final btnHabilitar = tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Habilitar Turno Online'));
+      final btnHabilitar = tester.widget<ElevatedButton>(
+          find.widgetWithText(ElevatedButton, 'Habilitar Turno Online'));
       expect(btnHabilitar.onPressed, isNull);
 
       // Ahora agregamos la variante real mediante el botón 'Agregar prenda'
@@ -207,14 +236,18 @@ void main() {
       expect(find.text('Vestido Fiesta Rojo (SKU-VES-ROJO-M)'), findsOneWidget);
 
       // Y el botón de habilitar debe estar activo
-      final btnHabilitarActivo = tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Habilitar Turno Online'));
+      final btnHabilitarActivo = tester.widget<ElevatedButton>(
+          find.widgetWithText(ElevatedButton, 'Habilitar Turno Online'));
       expect(btnHabilitarActivo.onPressed, isNotNull);
     });
 
-    testWidgets('Recorrido productivo E2E: Apertura con variante real -> Cobro sin red -> Reinicio -> Reconexión/Sync preservando operacion_id -> Cierre con conciliación', (tester) async {
+    testWidgets(
+        'Recorrido productivo E2E: Apertura con variante real -> Cobro sin red -> Reinicio -> Reconexión/Sync preservando operacion_id -> Cierre con conciliación',
+        (tester) async {
       String? operacionIdCapturadaEnSync;
       Map<String, dynamic>? cuerpoCierreCapturado;
       bool redDisponible = true;
+      int stockLibreEnSucursal = 1;
 
       final ahora = DateTime.now().toUtc();
       final vence = ahora.add(const Duration(hours: 8));
@@ -243,10 +276,27 @@ void main() {
 
         // 2. Turno Activo
         if (request.url.path.endsWith('/cajas/turnos/activo')) {
-          return http.Response('null', 200, headers: {'content-type': 'application/json'});
+          return http.Response('null', 200,
+              headers: {'content-type': 'application/json'});
         }
 
         // 3. Variantes y Productos
+        if (request.url.path.contains('/inventario/existencias')) {
+          return http.Response(
+            jsonEncode([
+              {
+                'variante_id': testVarianteRealId,
+                'producto_id': 'prod-vestido-01',
+                'sku': 'SKU-VES-ROJO-M',
+                'producto_nombre': 'Vestido Fiesta Rojo',
+                'disponible': stockLibreEnSucursal,
+                'precio': 220.0,
+              }
+            ]),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
         if (request.url.path.endsWith('/variantes')) {
           return http.Response(
             jsonEncode([
@@ -281,7 +331,8 @@ void main() {
         }
 
         // 4. Habilitar Turno Online (POST /cajas/turnos)
-        if (request.url.path.endsWith('/cajas/turnos') && request.method == 'POST') {
+        if (request.url.path.endsWith('/cajas/turnos') &&
+            request.method == 'POST') {
           expect(request.headers['Idempotency-Key'], isNotNull);
           final body = jsonDecode(request.body) as Map<String, dynamic>;
           expect(body['sucursal_id'], testSucursalId);
@@ -289,8 +340,11 @@ void main() {
           expect(cupos.length, 1);
           // Garantizar que la variante enviada es la real, NUNCA la ficticia 00000000-0000-4000-8000-000000000001
           expect(cupos.first['variante_id'], testVarianteRealId);
-          expect(cupos.first['variante_id'], isNot('00000000-0000-4000-8000-000000000001'));
-          expect(cupos.first['cantidad'], 5);
+          expect(cupos.first['variante_id'],
+              isNot('00000000-0000-4000-8000-000000000001'));
+          expect(cupos.first['cantidad'], 1);
+
+          stockLibreEnSucursal = 0;
 
           return http.Response(
             jsonEncode({
@@ -310,7 +364,7 @@ void main() {
                   'variante_id': testVarianteRealId,
                   'sku': 'SKU-VES-ROJO-M',
                   'producto_nombre': 'Vestido Fiesta Rojo',
-                  'otorgado': 5,
+                  'otorgado': 1,
                   'consumido': 0,
                   'precio_autorizado_bob': 220.0,
                 }
@@ -343,7 +397,9 @@ void main() {
 
         // 6. Cerrar Turno (POST /cajas/turnos/{turno_id}/cerrar)
         if (request.url.path.contains('/cerrar') && request.method == 'POST') {
-          cuerpoCierreCapturado = jsonDecode(request.body) as Map<String, dynamic>;
+          cuerpoCierreCapturado =
+              jsonDecode(request.body) as Map<String, dynamic>;
+          stockLibreEnSucursal = 0;
           return http.Response(
             jsonEncode({
               'turno_id': testTurnoId,
@@ -353,9 +409,9 @@ void main() {
               'cupos_devueltos': [
                 {
                   'variante_id': testVarianteRealId,
-                  'otorgado': 5,
+                  'otorgado': 1,
                   'consumido': 1,
-                  'devuelto': 4,
+                  'devuelto': 0,
                 }
               ],
             }),
@@ -368,7 +424,8 @@ void main() {
       });
 
       final api = ApiClient(httpClient: mockHttp, sesiones: sessionManager);
-      final cajaSrv = CajaService(api: api, sesiones: sessionManager, storage: storage);
+      final cajaSrv =
+          CajaService(api: api, sesiones: sessionManager, storage: storage);
       final sucursalSrv = SucursalService(api: api);
       final catalogoSrv = CatalogoService(api: api, storage: storage);
 
@@ -399,10 +456,11 @@ void main() {
       // Debe mostrar la vista de Turno Activo
       expect(find.text('CAJA-MOVIL-01'), findsOneWidget);
       expect(find.text('ABIERTO'), findsOneWidget);
-      expect(find.text('Disp: 5 / 5 (Bs 220.00)'), findsOneWidget);
+      expect(find.text('Disp: 1 / 1 (Bs 220.00)'), findsOneWidget);
 
       // Verificar que el turno fue guardado de forma durable en SQLite
-      final turnoEnSqlite = await storage.obtenerTurnoActivoLocal(empresaId: testEmpresaId);
+      final turnoEnSqlite =
+          await storage.obtenerTurnoActivoLocal(empresaId: testEmpresaId);
       expect(turnoEnSqlite, isNotNull);
       expect(turnoEnSqlite!.turnoId, testTurnoId);
 
@@ -411,7 +469,8 @@ void main() {
       redDisponible = false;
 
       // Ingresar efectivo recibido
-      final efectivoFinder = find.widgetWithText(TextField, 'Efectivo Recibido (Bs)');
+      final efectivoFinder =
+          find.widgetWithText(TextField, 'Efectivo Recibido (Bs)');
       await tester.ensureVisible(efectivoFinder);
       await tester.enterText(efectivoFinder, '250');
       await tester.pumpAndSettle();
@@ -426,18 +485,22 @@ void main() {
       expect(find.text('Comprobante Emitido'), findsOneWidget);
       expect(find.text('Total Pagado: Bs 220.00'), findsOneWidget);
       expect(find.text('Cambio Entregado: Bs 30.00'), findsOneWidget);
-      expect(find.text('Venta registrada localmente en este dispositivo. Lista para sincronizar al conectarse al servidor.'), findsOneWidget);
+      expect(
+          find.text(
+              'Venta registrada localmente en este dispositivo. Lista para sincronizar al conectarse al servidor.'),
+          findsOneWidget);
 
       // Aceptar modal
       await tester.tap(find.text('Aceptar'));
       await tester.pumpAndSettle();
 
-      // Cupo en memoria descontado inmediatamente (Disp: 4 / 5)
-      expect(find.text('Disp: 4 / 5 (Bs 220.00)'), findsOneWidget);
+      // La unica unidad asignada se consume sin red.
+      expect(find.text('Disp: 0 / 1 (Bs 220.00)'), findsOneWidget);
       expect(find.text('1 venta(s) pendientes de sincronizar'), findsOneWidget);
 
       // Verificar persistencia durable en SQLite de la venta offline antes de sincronizar
-      final ventasPendientesSqlite = await storage.listarVentasOfflinePendientes(
+      final ventasPendientesSqlite =
+          await storage.listarVentasOfflinePendientes(
         empresaId: testEmpresaId,
         turnoId: testTurnoId,
       );
@@ -472,7 +535,7 @@ void main() {
       expect(find.text('CAJA-MOVIL-01'), findsOneWidget);
       expect(find.text('ABIERTO'), findsOneWidget);
       expect(find.text('1 venta(s) pendientes de sincronizar'), findsOneWidget);
-      expect(find.text('Disp: 4 / 5 (Bs 220.00)'), findsOneWidget);
+      expect(find.text('Disp: 0 / 1 (Bs 220.00)'), findsOneWidget);
 
       // --- PASO 4: Reconexión y Sincronización preservando el operacion_id ---
       // Vuelve la red
@@ -492,7 +555,8 @@ void main() {
 
       // --- PASO 5: Cierre de Turno y Conciliación ---
       // Ingresar arqueo
-      final arqueoFinder = find.widgetWithText(TextField, 'Arqueo de Efectivo Final en Caja (Bs)');
+      final arqueoFinder = find.widgetWithText(
+          TextField, 'Arqueo de Efectivo Final en Caja (Bs)');
       await tester.ensureVisible(arqueoFinder);
       await tester.enterText(arqueoFinder, '220');
       await tester.pumpAndSettle();
@@ -519,7 +583,15 @@ void main() {
 
       // Vuelve al formulario sin turno y SQLite queda limpio
       expect(find.text('Habilitar Turno de Caja'), findsOneWidget);
-      final turnoSqliteFinal = await storage.obtenerTurnoActivoLocal(empresaId: testEmpresaId);
+      expect(
+        find.text(
+          'No hay prendas con disponibilidad confirmada en esta sucursal. '
+          'Con?ctate y vuelve a cargar.',
+        ),
+        findsOneWidget,
+      );
+      final turnoSqliteFinal =
+          await storage.obtenerTurnoActivoLocal(empresaId: testEmpresaId);
       expect(turnoSqliteFinal, isNull);
     });
   });

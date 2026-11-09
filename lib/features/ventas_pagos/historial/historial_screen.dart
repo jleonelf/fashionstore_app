@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/compra_model.dart';
 import '../../identidad_empresas/services/auth_service.dart';
 import '../services/historial_service.dart';
+import '../../posventa/services/posventa_service.dart';
 import '../../../core/ui/async_view.dart';
 import '../../../core/ui/formato.dart';
 
@@ -10,7 +11,13 @@ import '../../../core/ui/formato.dart';
 class HistorialScreen extends StatefulWidget {
   final HistorialService? servicioHistorial;
   final AuthService? servicioAuth;
-  const HistorialScreen({super.key, this.servicioHistorial, this.servicioAuth});
+  final PosventaService? servicioPosventa;
+  const HistorialScreen({
+    super.key,
+    this.servicioHistorial,
+    this.servicioAuth,
+    this.servicioPosventa,
+  });
 
   @override
   State<HistorialScreen> createState() => _HistorialScreenState();
@@ -19,6 +26,7 @@ class HistorialScreen extends StatefulWidget {
 class _HistorialScreenState extends State<HistorialScreen> {
   late final HistorialService _srv;
   late final AuthService _auth;
+  late final PosventaService _posventa;
   List<Compra> _items = [];
   bool _cargando = true;
   String? _error;
@@ -31,7 +39,101 @@ class _HistorialScreenState extends State<HistorialScreen> {
     super.initState();
     _srv = widget.servicioHistorial ?? HistorialService();
     _auth = widget.servicioAuth ?? AuthService();
+    _posventa = widget.servicioPosventa ?? PosventaService();
     _cargar(inicial: true);
+  }
+
+  Future<void> _solicitarDevolucion(Compra compra, DetalleCompra detalle) async {
+    var cantidad = 1;
+    var motivoCodigo = 'TALLA';
+    final descripcion = TextEditingController();
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, actualizarDialogo) => AlertDialog(
+          title: const Text('Solicitar devolución'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: motivoCodigo,
+                decoration: const InputDecoration(labelText: 'Motivo'),
+                items: const [
+                  DropdownMenuItem(value: 'TALLA', child: Text('Talla')),
+                  DropdownMenuItem(value: 'COLOR', child: Text('Color')),
+                  DropdownMenuItem(value: 'DEFECTO_FABRICACION', child: Text('Defecto de fabricación')),
+                  DropdownMenuItem(value: 'PRODUCTO_INCORRECTO', child: Text('Producto incorrecto')),
+                  DropdownMenuItem(value: 'OTRO', child: Text('Otro')),
+                ],
+                onChanged: (value) {
+                  if (value != null) actualizarDialogo(() => motivoCodigo = value);
+                },
+              ),
+              TextField(
+                controller: descripcion,
+                decoration: const InputDecoration(labelText: 'Detalle (opcional)'),
+                maxLength: 300,
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Unidades a devolver'),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: cantidad > 1
+                            ? () => actualizarDialogo(() => cantidad--)
+                            : null,
+                        icon: const Icon(Icons.remove_circle_outline),
+                      ),
+                      Text('$cantidad / ${detalle.cantidad}'),
+                      IconButton(
+                        onPressed: cantidad < detalle.cantidad
+                            ? () => actualizarDialogo(() => cantidad++)
+                            : null,
+                        icon: const Icon(Icons.add_circle_outline),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Enviar solicitud')),
+          ],
+        ),
+      ),
+    );
+    if (confirmar != true || !mounted) {
+      descripcion.dispose();
+      return;
+    }
+    try {
+      await _posventa.solicitarDevolucion(
+        ventaId: compra.id,
+        motivoCodigo: motivoCodigo,
+        motivo: descripcion.text.trim(),
+        lineas: [
+          {'detalle_venta_id': detalle.id, 'cantidad': cantidad},
+        ],
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Solicitud enviada. Podrás consultar su estado en Posventa.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No se pudo enviar la solicitud: $e')),
+        );
+      }
+    } finally {
+      descripcion.dispose();
+    }
   }
 
   Future<void> _cargar({bool inicial = false}) async {
@@ -125,11 +227,26 @@ class _HistorialScreenState extends State<HistorialScreen> {
               ),
               children: [
                 for (final d in c.detalles)
-                  ListTile(
-                    dense: true,
-                    title: Text('Cantidad: ${d.cantidad}'),
-                    trailing: Text(formatoPrecio(
-                        d.precioUnitario * d.cantidad - d.descuento)),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ListTile(
+                        dense: true,
+                        title: Text('Cantidad: ${d.cantidad}'),
+                        trailing: Text(formatoPrecio(
+                            d.precioUnitario * d.cantidad - d.descuento)),
+                      ),
+                      if (c.estado == 'PAGADA' || c.estado == 'PARCIALMENTE_DEVUELTA')
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            key: Key('devolver-${c.id}-${d.id}'),
+                            onPressed: () => _solicitarDevolucion(c, d),
+                            icon: const Icon(Icons.assignment_return_outlined),
+                            label: const Text('Solicitar devolución'),
+                          ),
+                        ),
+                    ],
                   ),
               ],
             ),

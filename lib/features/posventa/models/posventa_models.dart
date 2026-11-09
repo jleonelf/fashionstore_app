@@ -90,10 +90,14 @@ class DevolucionModel {
       id: '${j['id'] ?? ''}',
       ventaId: '${j['venta_id'] ?? ''}',
       estado: '${j['estado'] ?? ''}',
-      motivo: '${j['motivo'] ?? ''}',
+      motivo: '${j['motivo'] ?? j['motivo_descripcion'] ?? j['motivo_codigo'] ?? ''}',
       sucursalId: '${j['sucursal_id'] ?? ''}',
-      creadaEn: '${j['creada_en'] ?? ''}',
-      lineas: (j['lineas'] as List?)?.cast<Map<String, dynamic>>() ?? const [],
+      creadaEn: '${j['creada_en'] ?? j['solicitada_en'] ?? ''}',
+      lineas: ((j['lineas'] ?? j['detalles']) as List?)
+              ?.whereType<Map>()
+              .map((e) => e.cast<String, dynamic>())
+              .toList() ??
+          const [],
     );
   }
 }
@@ -120,13 +124,13 @@ class CambioModel {
 
   factory CambioModel.fromJson(Map<String, dynamic> j) {
     return CambioModel(
-      id: '${j['id'] ?? ''}',
+      id: '${j['cambio_id'] ?? j['id'] ?? ''}',
       ventaId: '${j['venta_id'] ?? ''}',
       estado: '${j['estado'] ?? ''}',
       diferenciaBob: double.tryParse('${j['diferencia_bob']}') ?? 0.0,
       direccionDiferencia: '${j['direccion_diferencia'] ?? 'CERO'}',
-      notaVigenciaHasta: '${j['nota_vigencia_hasta'] ?? ''}',
-      creadaEn: '${j['creada_en'] ?? ''}',
+      notaVigenciaHasta: '${j['nota_vigencia_hasta'] ?? j['vence_espera_en'] ?? ''}',
+      creadaEn: '${j['creada_en'] ?? j['creado_en'] ?? ''}',
     );
   }
 }
@@ -152,7 +156,7 @@ class ReembolsoModel {
       id: '${j['id'] ?? ''}',
       origenTipo: '${j['origen_tipo'] ?? ''}',
       estado: '${j['estado'] ?? ''}',
-      montoTotalBob: double.tryParse('${j['monto_total_bob']}') ?? 0.0,
+      montoTotalBob: double.tryParse('${j['monto_total_bob'] ?? j['monto_bob']}') ?? 0.0,
       creadaEn: '${j['creada_en'] ?? ''}',
     );
   }
